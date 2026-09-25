@@ -96,12 +96,21 @@ class SonarModelService(ModelService):
     def is_loaded(self) -> bool:
         return self._loaded
 
-    def _boxes_from_result(self, result) -> list[Detection]:
+    def _boxes_from_result(self, result, meta: dict | None = None) -> list[Detection]:
         detections: list[Detection] = []
         names = result.names or self._names
         boxes = result.boxes
         if boxes is None:
             return detections
+
+        has_letterbox = bool(meta and "scale" in meta and meta.get("scale", 0) > 0)
+        scale = float(meta["scale"]) if has_letterbox else 1.0
+        pad_left = float(meta.get("pad_left", 0)) if has_letterbox else 0.0
+        pad_top = float(meta.get("pad_top", 0)) if has_letterbox else 0.0
+        orig_shape = meta.get("orig_shape") if has_letterbox else None
+        orig_h = float(orig_shape[0]) if orig_shape else None
+        orig_w = float(orig_shape[1]) if orig_shape else None
+
         for box in boxes:
             xyxy = box.xyxy[0].tolist()
             conf = float(box.conf[0])
@@ -109,6 +118,18 @@ class SonarModelService(ModelService):
             raw_name = str(names.get(cls_id, self._names.get(cls_id, f"class_{cls_id}")))
             label = _pretty_label(raw_name)
             x1, y1, x2, y2 = xyxy
+
+            if has_letterbox:
+                x1 = (x1 - pad_left) / scale
+                y1 = (y1 - pad_top) / scale
+                x2 = (x2 - pad_left) / scale
+                y2 = (y2 - pad_top) / scale
+                if orig_w is not None and orig_h is not None:
+                    x1 = max(0.0, min(orig_w, x1))
+                    y1 = max(0.0, min(orig_h, y1))
+                    x2 = max(0.0, min(orig_w, x2))
+                    y2 = max(0.0, min(orig_h, y2))
+
             width = max(0.0, x2 - x1)
             height = max(0.0, y2 - y1)
             detections.append(
@@ -126,26 +147,39 @@ class SonarModelService(ModelService):
         if not self._loaded or self._model is None:
             raise RuntimeError("Model has not been loaded. Call load() first.")
 
+        import numpy as np
         from PIL import Image
 
         raw = input_data.data
-        if not isinstance(raw, (bytes, bytearray)):
-            raise TypeError("SonarModelService expects image bytes")
+        meta = getattr(input_data, "metadata", {}) or {}
+        if isinstance(raw, (bytes, bytearray)):
+            source = Image.open(io.BytesIO(raw)).convert("RGB")
+        elif isinstance(raw, np.ndarray):
+            if raw.ndim == 3 and raw.shape[0] in (1, 3):
+                # Convert CHW -> HWC
+                source = np.transpose(raw, (1, 2, 0))
+            else:
+                source = raw
+            if np.issubdtype(source.dtype, np.floating) and source.max() <= 1.05:
+                source = np.clip(source * 255.0, 0, 255).astype(np.uint8)
+        else:
+            raise TypeError(
+                f"SonarModelService expects image bytes or numpy array, got {type(raw).__name__}"
+            )
 
-        image = Image.open(io.BytesIO(raw)).convert("RGB")
         collected: list[Detection] = []
         scores: dict[str, float] = {}
 
         for imgsz in _INFER_SIZES:
             results = self._model.predict(
-                source=image,
+                source=source,
                 imgsz=imgsz,
                 conf=_MODEL_CONF,
                 verbose=False,
             )
             if not results:
                 continue
-            collected.extend(self._boxes_from_result(results[0]))
+            collected.extend(self._boxes_from_result(results[0], meta=meta))
 
         detections = _nms(collected)
         for det in detections:

@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  sonar-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sonar-sentry-api
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - MODEL_PROVIDER=yolo
+      - YOLO_WEIGHTS_PATH=/app/model/best.pt
+      - SSS_ENABLE_PROCESSING=true
+      - SSS_ENABLE_BAC=true
+      - SSS_ENABLE_STRIPE_FILTER=true
+      - SSS_ENABLE_SHARPENING=true
+      - SSS_ENABLE_SHADOW_INPAINTING=true
+      - SSS_SHADOW_THRESHOLD=0.15
+      - SSS_SHADOW_INPAINT_METHOD=telea
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./uploads:/app/uploads
+      - ./model:/app/model:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: sonar-sentry-prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - sonar-api
+    restart: unless-stopped

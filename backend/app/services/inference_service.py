@@ -25,8 +25,29 @@ class InferenceService:
         return self._model.is_loaded
 
     def predict(self, raw_image_bytes: bytes) -> PredictionResult:
+        import time
+
+        t0 = time.perf_counter()
         preprocessed: PreprocessedInput = self._preprocessor.process(raw_image_bytes)
-        return self._model.predict(preprocessed)
+        t_prep = time.perf_counter() - t0
+        try:
+            from app.monitoring.metrics import PREPROCESSING_TIME
+
+            PREPROCESSING_TIME.observe(t_prep)
+        except Exception:
+            pass
+
+        t1 = time.perf_counter()
+        result = self._model.predict(preprocessed)
+        t_infer = time.perf_counter() - t1
+        try:
+            from app.monitoring.metrics import INFERENCE_TIME
+
+            INFERENCE_TIME.observe(t_infer)
+        except Exception:
+            pass
+
+        return result
 
     def metadata(self) -> ModelMetadata:
         return self._model.metadata()

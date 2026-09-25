@@ -19,6 +19,17 @@ class Settings(BaseSettings):
     api_prefix: str = "/api"
     debug: bool = False
 
+    # SSS Preprocessing settings
+    sss_enable_processing: bool = True
+    sss_enable_bac: bool = True
+    sss_enable_stripe_filter: bool = True
+    sss_enable_sharpening: bool = True
+    sss_enable_shadow_inpainting: bool = True
+    sss_shadow_threshold: float = 0.15
+    sss_shadow_inpaint_method: str = "telea"
+    yolo_target_size: tuple[int, int] = (640, 640)
+    yolo_normalize: bool = True
+
     database_url: str = "sqlite:///./sonar_sentry.db"
     upload_dir: str = str(Path(__file__).resolve().parent.parent / "data" / "uploads")
     output_dir: str = str(Path(__file__).resolve().parent.parent / "data" / "outputs")

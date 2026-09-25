@@ -20,7 +20,26 @@ def create_inference_service(settings: Settings | None = None) -> InferenceServi
     if settings is None:
         settings = get_settings()
 
-    preprocessor = IdentityPreprocessor()
+    if settings.sss_enable_processing:
+        from app.preprocessing.sonar_preprocessor import SonarPreprocessor
+        from app.preprocessing.yolo_preprocessor import YOLOPreprocessingConfig
+
+        yolo_config = YOLOPreprocessingConfig(
+            target_size=settings.yolo_target_size,
+            normalize=settings.yolo_normalize,
+        )
+        preprocessor = SonarPreprocessor(
+            apply_sss_processing=settings.sss_enable_processing,
+            apply_bac=settings.sss_enable_bac,
+            apply_stripe_filter=settings.sss_enable_stripe_filter,
+            apply_sharpening=settings.sss_enable_sharpening,
+            apply_shadow_inpainting=settings.sss_enable_shadow_inpainting,
+            shadow_threshold=settings.sss_shadow_threshold,
+            shadow_inpaint_method=settings.sss_shadow_inpaint_method,
+            yolo_config=yolo_config,
+        )
+    else:
+        preprocessor = IdentityPreprocessor()
 
     if settings.model_provider == "mock":
         model = MockModelService()

@@ -48,6 +48,11 @@ def create_app() -> FastAPI:
     from app.api.routes.reports import router as reports_router
     from app.api.routes.predict import router as predict_router
     from app.api.routes.anomalies import router as anomalies_router
+    from app.monitoring.metrics import (
+        REQUEST_COUNT,
+        REQUEST_LATENCY,
+        router as metrics_router,
+    )
 
     application.include_router(health_router)
     application.include_router(detect_router)
@@ -55,6 +60,21 @@ def create_app() -> FastAPI:
     application.include_router(reports_router)
     application.include_router(predict_router)
     application.include_router(anomalies_router)
+    application.include_router(metrics_router)
+
+    @application.middleware("http")
+    async def metrics_middleware(request, call_next):
+        import time
+
+        start_time = time.perf_counter()
+        response = await call_next(request)
+        duration = time.perf_counter() - start_time
+        endpoint = request.url.path
+        REQUEST_COUNT.labels(
+            method=request.method, endpoint=endpoint, status=response.status_code
+        ).inc()
+        REQUEST_LATENCY.labels(endpoint=endpoint).observe(duration)
+        return response
 
     return application
 

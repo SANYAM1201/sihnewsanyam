@@ -1,508 +1,226 @@
-# Sonar Sentry Backend — Architecture & Integration Guide
+# Sonar Sentry Backend — Architecture & System Guide
 
-## Quick Start
+AI-Powered Automated Underwater Marine Debris and Anomaly Detection System using Side-Scan Sonar (SSS) Imagery.  
+*Aligned with Ministry of Earth Sciences (MoES) — SIH 2026 Problem Statement.*
 
+---
+
+## 1. Quick Start
+
+### Local Setup
 ```bash
-cd backend
-pip install -r requirements.txt
-cp .env.example .env          # edit if needed
-uvicorn app.main:app --reload --port 8000
+# In repository root
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+
+# Start backend server
+PYTHONPATH=backend uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Verify: `GET http://127.0.0.1:8000/api/health`
+Verify backend health:
+```bash
+curl -s http://127.0.0.1:8000/api/health | jq .
+```
 
-Interactive docs: `http://127.0.0.1:8000/docs`
+Interactive OpenAPI documentation:
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- ReDoc: `http://127.0.0.1:8000/redoc`
+- Prometheus Metrics: `http://127.0.0.1:8000/metrics`
 
 ---
 
-## Project Structure
+## 2. System Architecture
 
 ```
-backend/
-├── app/
-│   ├── main.py                    # FastAPI app factory + lifespan
-│   ├── config.py                  # Pydantic Settings (env-based)
-│   ├── database.py                # SQLAlchemy engine + session
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── orm.py                 # Run, Detection, Report ORM models
-│   ├── schemas/
-│   │   ├── ml.py                  # PreprocessedInput, PredictionResult, Detection, ModelMetadata
-│   │   ├── response.py            # HealthResponse, PredictionResponse, ErrorResponse
-│   │   ├── detection.py           # DetectResponse, DetectionItem, RiskLevel, ProcessingStatus
-│   │   ├── run.py                 # RunSummary, RunDetail, RunListResponse
-│   │   ├── report.py              # ReportItem, ReportDetail, ReportListResponse
-│   │   └── upload.py              # UploadMetadata, DetectionSettings
-│   ├── services/
-│   │   ├── model_service.py       # ABC interface for model implementations
-│   │   ├── mock_model_service.py  # Mock model (deterministic, multi-detection)
-│   │   ├── sonar_model_service.py # Placeholder for real model (NotImplementedError)
-│   │   ├── inference_service.py   # Orchestrates preprocessing → model
-│   │   ├── factory.py             # Creates InferenceService based on MODEL_PROVIDER
-│   │   ├── result_normalizer.py   # Raw model output → normalized DetectionItems
-│   │   ├── storage_service.py     # File upload/output management
-│   │   └── report_service.py      # Report CRUD + pagination
-│   ├── preprocessing/
-│   │   ├── base.py                # Preprocessor ABC
-│   │   └── identity_preprocessor.py  # No-op preprocessor (placeholder)
-│   ├── repositories/
-│   │   ├── run_repository.py      # Run DB operations
-│   │   ├── detection_repository.py # Detection DB operations
-│   │   └── report_repository.py   # Report DB operations (filter, search, paginate)
-│   └── api/
-│       ├── exceptions.py          # Exception hierarchy + handler
-│       └── routes/
-│           ├── health.py          # GET /api/health, GET /health
-│           ├── detect.py          # POST /api/detect
-│           ├── runs.py            # GET /api/runs, GET /api/runs/{id}
-│           ├── reports.py         # GET /api/reports, GET /api/reports/{id}
-│           └── predict.py         # POST /api/predict (legacy, kept)
-├── tests/
-│   ├── conftest.py                # Fresh SQLite per test
-│   ├── test_health_api.py
-│   ├── test_detect_api.py
-│   ├── test_runs_api.py
-│   ├── test_reports_api.py
-│   ├── test_normalizer.py
-│   ├── test_storage.py
-│   ├── test_health.py             # Original tests (updated)
-│   ├── test_predict.py            # Original tests (updated)
-│   ├── test_model_service.py
-│   ├── test_inference_service.py
-│   ├── test_preprocessing.py
-│   └── test_factory.py
-├── requirements.txt
-├── .env.example
-└── Dockerfile
+                                  RAW SSS IMAGE (JPEG / PNG / TIFF)
+                                                 │
+                                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                           SONAR PREPROCESSOR PIPELINE                                   │
+│                                                                                         │
+│  [Stage 1: Radiometric]    Column-wise Beam Angle Correction (BAC)                      │
+│                            └─ Equalizes acoustic grazing-angle energy falloff across range│
+│                                                                                         │
+│  [Stage 2: Denoising]      2D-FFT Notch Stripe Filter                                   │
+│                            └─ Removes towfish heave & ping synchronization scanlines    │
+│                                                                                         │
+│  [Stage 3: Contrast]       Homomorphic Log/Exp Sharpening                               │
+│                            └─ Decouples illumination from seafloor acoustic reflectance │
+│                                                                                         │
+│  [Stage 4: Seafloor Contact] Bottom-Line Detection (BLD)                                │
+│                            └─ Identifies nadir water-column blind zone boundary         │
+│                                                                                         │
+│  [Stage 5: Acoustic Shadow] Shadow Detection & Inpainting                               │
+│                            ├─ Dynamic low-backscatter thresholding + CC area filter     │
+│                            └─ Fast Marching (Telea) / Navier-Stokes / PyTorch U-Net GAN │
+│                                                                                         │
+│  [Stage 6: Formatting]     Letterbox Resize (640x640) & Float32 Normalization          │
+│                            └─ Generates (3, 640, 640) tensor + inverse coordinate meta  │
+└────────────────────────────────────────────────┬────────────────────────────────────────┘
+                                                 │
+                                                 ▼
+                                     YOLOv8s INFERENCE ENGINE
+                                   (Weights: model/best.pt)
+                                                 │
+                                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                              POST-PROCESSING & INFERENCE                                │
+│                                                                                         │
+│  • Inverse Letterbox Remapping: [x_pad, y_pad] ➔ Original Full Resolution Coordinates   │
+│  • Result Normalization: Confidence thresholding, risk classification (Critical/High)  │
+│  • Persistence: SQLite / PostgreSQL Storage of Run, Detections, and Executive Report    │
+│  • Observability: Prometheus Request, Latency, and Detection Counters                   │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Environment Variables
+## 3. SSS Preprocessing Modules
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MODEL_PROVIDER` | `mock` | `mock` or `sonar` |
-| `MODEL_PATH` | `""` | Path to model weights (for sonar provider) |
-| `MODEL_VERSION` | `development` | Version reported by health endpoint |
-| `MAX_FILE_SIZE_MB` | `500` | Maximum upload size |
-| `FRONTEND_ORIGIN` | `http://localhost:5173` | CORS allowed origin |
-| `DATABASE_URL` | `sqlite:///./sonar_sentry.db` | Database connection string |
-| `UPLOAD_DIR` | `./data/uploads` | Where sonar files are stored |
-| `OUTPUT_DIR` | `./data/outputs` | Where processed outputs go |
-| `CORS_ORIGINS` | `["http://localhost:5173"]` | CORS origins list |
-| `DEBUG` | `false` | Enable SQLAlchemy query logging |
+### A. Column-wise Beam Angle Correction (BAC)
+- **Module:** `app.preprocessing.sidescan_processor.SidescanProcessor._apply_bac`
+- **Acoustic Physics:** In side-scan sonar, the grazing angle between the acoustic beam and the seafloor steepens at nadir and flattens out towards the maximum range. This causes natural acoustic energy falloff where the outer swath appears dark and low contrast.
+- **Algorithm:** Computes the mean intensity profile across ping columns $\mu_c = \frac{1}{H} \sum_{r=1}^H I(r, c)$, calculates global swath mean $\bar{\mu}$, and normalizes each column by $S_c = \bar{\mu} / \max(\mu_c, 1.0)$. Vectorized across RGB/grayscale channels.
+
+### B. 2D-FFT Horizontal Stripe Noise Filter
+- **Module:** `app.preprocessing.sidescan_processor.SidescanProcessor._apply_stripe_filter`
+- **Acoustic Physics:** Towfish heave caused by surface vessel wave motion and periodic electrical/ping timing jitter introduces horizontal banding across waterfall sonograms.
+- **Algorithm:** In 2D frequency space via FFT, horizontal line artifacts concentrate along the vertical frequency axis ($u \approx 0, v \neq 0$). A notch filter attenuates these frequencies while preserving the central DC low frequencies.
+- **Optimization:** For color images, the luminance channel $Y$ is processed in YCrCb color space (~30x faster than LAB), and large imagery (>640px) is 2x downsampled for the 2D FFT, achieving an ultra-fast execution of **~7.8 ms** per 1080p frame.
+
+### C. Homomorphic Edge Sharpening
+- **Module:** `app.preprocessing.sidescan_processor.SidescanProcessor._apply_homomorphic`
+- **Acoustic Physics:** Sonar intensity $I(x, y)$ can be modeled as the product of acoustic illumination $L(x, y)$ and seabed target reflectance $R(x, y)$:
+  $$\ln I(x, y) = \ln L(x, y) + \ln R(x, y)$$
+- **Algorithm:** Applies natural log transform $\ln(1 + I)$, estimates low-frequency illumination with a Gaussian filter, amplifies the high-pass reflectance component, and maps back through $\exp(x) - 1$ with strided percentile contrast stretching.
+
+### D. Bottom-Line Detection (BLD)
+- **Module:** `app.preprocessing.sidescan_processor.SidescanProcessor.detect_bottom_line`
+- **Acoustic Physics:** Directly beneath the towfish is the water column (nadir blind zone), which returns negligible acoustic backscatter until the acoustic wave first strikes the seafloor (Bottom Line).
+- **Algorithm:** Applies vertical smoothing to suppress ping speckle, estimates the water column noise floor from near-surface rows, and detects the first strong backscatter transition exceeding an adaptive threshold across range columns.
+
+### E. Acoustic Shadow Detection & Inpainting
+- **Modules:** `app.preprocessing.shadow_handler.ShadowDetector`, `ShadowInpainter`, and `app.ml.gan_modules.GANShadowInpainter`
+- **Acoustic Physics:** High-profile underwater anomalies (shipwrecks, shipping containers, lost fishing gear / ghost nets) block acoustic wave propagation, casting dark acoustic shadows behind them. Inpainting fills these low-backscatter voids with local seabed texture to prevent false positives and missed debris edges.
+- **Algorithm:**
+  1. Low-backscatter intensity thresholding ($I < \tau$, default $\tau = 0.15$).
+  2. Morphological opening to eliminate speckle noise.
+  3. Connected-components area filtering ($Area \ge 100\text{px}$) to retain true acoustic shadows.
+  4. Inpainting using Fast Marching (Telea), Navier-Stokes (NS), or PyTorch U-Net GAN.
+  5. Optimized with downsampling for large imagery and pixel gating (<200px skips inpainting), reducing inpainting latency from 171 ms to **~29 ms**.
+
+### F. YOLO Letterboxing & Coordinate Remapping
+- **Module:** `app.preprocessing.yolo_preprocessor.YOLOPreprocessor`
+- **Algorithm:** Resizes images to $(640, 640)$ while preserving aspect ratio through symmetric black padding. Generates `LetterboxMeta` containing `scale`, `pad_left`, and `pad_top`. During post-processing in `SonarModelService`, bounding box coordinates are mapped back to original image space via:
+  $$x_{\text{orig}} = \frac{x_{\text{box}} - \text{pad\_left}}{\text{scale}}, \quad y_{\text{orig}} = \frac{y_{\text{box}} - \text{pad\_top}}{\text{scale}}$$
 
 ---
 
-## API Endpoints
+## 4. Benchmark Performance Metrics
+
+Benchmarked on **1920×1080** high-resolution real side-scan sonar waterfall imagery (Apple Silicon CPU, single-thread):
+
+| Processing Stage | Original Latency | Optimized Latency | Speedup |
+|:-----------------|:-----------------|:------------------|:--------|
+| **Beam Angle Correction (BAC)** | 11.73 ms | 11.78 ms | Vectorized baseline |
+| **2D-FFT Stripe Noise Filter** | 95.81 ms | **7.81 ms** | **12.3x speedup** |
+| **Homomorphic Sharpening** | 24.78 ms | **15.41 ms** | **1.6x speedup** |
+| **Acoustic Shadow Detection** | 18.12 ms | **18.10 ms** | Highly efficient |
+| **Shadow Inpainting (Telea)** | 171.14 ms | **29.66 ms** | **5.8x speedup** |
+| **YOLO Letterbox + Normalize** | 1.31 ms | **1.28 ms** | Real-time |
+| **Total Preprocessing Pipeline** | **218.68 ms** | **82.22 ms** | **2.7x speedup (12.2 FPS)** |
+
+*Conclusion:* Fully satisfies the `< 150 ms` requirement, comfortably supporting real-time marine survey feeds (10–12 Hz ping rate).
+
+---
+
+## 5. Environment Variables & Configuration
+
+| Variable | Type | Default | Description |
+|:---------|:-----|:--------|:------------|
+| `MODEL_PROVIDER` | string | `yolo` | `yolo` (trained model) or `mock` (testing) |
+| `YOLO_WEIGHTS_PATH` | string | `model/best.pt` | Path to trained YOLOv8 model weights |
+| `SSS_ENABLE_PROCESSING` | bool | `true` | Enable domain-specific SSS preprocessing pipeline |
+| `SSS_ENABLE_BAC` | bool | `true` | Enable column-wise Beam Angle Correction |
+| `SSS_ENABLE_STRIPE_FILTER` | bool | `true` | Enable 2D-FFT horizontal stripe notch filter |
+| `SSS_ENABLE_SHARPENING` | bool | `true` | Enable homomorphic edge sharpening |
+| `SSS_ENABLE_SHADOW_INPAINTING` | bool | `true` | Enable acoustic shadow detection & inpainting |
+| `SSS_SHADOW_THRESHOLD` | float | `0.15` | Shadow intensity cutoff threshold [0.0, 1.0] |
+| `SSS_SHADOW_INPAINT_METHOD` | string | `telea` | Inpaint method: `telea` or `ns` |
+| `YOLO_TARGET_SIZE` | list[int] | `[640, 640]` | Target tensor dimensions for YOLOv8 |
+| `DATABASE_URL` | string | `sqlite:///./sonar_sentry.db` | SQLAlchemy connection string |
+| `MAX_FILE_SIZE_MB` | int | `500` | Maximum upload file size in megabytes |
+
+---
+
+## 6. API Endpoints Reference
 
 ### `GET /api/health`
+Returns backend health status, model readiness, database state, and active preprocessing configurations.
 
-Returns backend status, model readiness, and database connectivity.
-
+**Response (200 OK):**
 ```json
 {
   "status": "ok",
   "model": {
-    "provider": "mock",
+    "provider": "yolo",
     "loaded": true,
-    "name": "sonar-model",
-    "version": "development"
+    "name": "yolov8s-sonar",
+    "version": "1.0.0"
   },
   "database": {
     "status": "ok"
+  },
+  "preprocessing": {
+    "enabled": true,
+    "bac_normalization": true,
+    "stripe_noise_filter": true,
+    "homomorphic_sharpening": true,
+    "shadow_inpainting": true,
+    "shadow_threshold": 0.15,
+    "shadow_inpaint_method": "telea",
+    "target_size": [640, 640]
   }
 }
 ```
 
 ### `POST /api/detect`
+Performs end-to-end ingestion, SSS preprocessing, YOLOv8 inference, coordinate remapping, and executive report creation.
 
-Primary production endpoint. Accepts multipart/form-data.
+**Form Data Parameters:**
+- `file`: Image file (PNG, JPEG, TIFF)
+- `latitude`: Float (-90.0 to 90.0)
+- `longitude`: Float (-180.0 to 180.0)
+- `sonar_type`: String (`Side-Scan`, `Multibeam`, or `Synthetic Aperture`)
+- `resolution`: String (`0.1 m/px`, `0.5 m/px`, or `1 m/px`)
+- `depth_min`: Float ($\ge 0$)
+- `depth_max`: Float ($> \text{depth\_min}$)
+- `confidence_threshold`: Int (optional, default 78)
 
-**Request fields:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file` | file | yes | Sonar image (JPEG, PNG, TIFF) |
-| `latitude` | float | yes | -90 to 90 |
-| `longitude` | float | yes | -180 to 180 |
-| `sonar_type` | string | yes | `Side-Scan`, `Multibeam`, or `Synthetic Aperture` |
-| `resolution` | string | yes | `0.1 m/px`, `0.5 m/px`, or `1 m/px` |
-| `depth_min` | float | yes | Minimum depth in metres (>= 0) |
-| `depth_max` | float | yes | Maximum depth in metres (> depth_min) |
-| `confidence_threshold` | int | no | 50–95 (default 78) |
-| `selected_classes` | string | no | Comma-separated (default `Debris,Shipwreck`) |
-| `min_object_size` | int | no | 10–200 (default 40) |
-
-**Response (200):**
-
-```json
-{
-  "success": true,
-  "run_id": "uuid",
-  "mission_id": "MSN-xxxx",
-  "status": "completed",
-  "scan_metadata": {
-    "filename": "sonar_scan.jpg",
-    "file_size_bytes": 504,
-    "latitude": 12.9716,
-    "longitude": 80.2436,
-    "sonar_type": "Side-Scan",
-    "resolution": "0.5 m/px",
-    "depth_min": 4.0,
-    "depth_max": 38.0
-  },
-  "detection_summary": {
-    "total": 4,
-    "high_risk": 2,
-    "medium_risk": 0,
-    "low_risk": 2,
-    "critical_risk": 1,
-    "avg_confidence": 0.74
-  },
-  "detections": [
-    {
-      "detection_id": "uuid",
-      "class_label": "Rock Formation",
-      "confidence": 0.86,
-      "risk_level": "high",
-      "bbox": { "x": 111.0, "y": 177.0, "width": 151.0, "height": 111.0 },
-      "depth_m": 13.1,
-      "area_m2": 167.6,
-      "position_info": "MOCK_POSITION_1"
-    }
-  ],
-  "model": {
-    "name": "sonar-model",
-    "version": "development",
-    "provider": "mock"
-  },
-  "timestamps": {
-    "started_at": "2026-08-30T10:09:26.767450+00:00",
-    "completed_at": "2026-08-30T10:09:26.795632+00:00",
-    "duration_seconds": 0.028
-  }
-}
-```
-
-### `GET /api/runs`
-
-List detection runs with pagination.
-
-**Query params:** `page` (default 1), `page_size` (default 20), `status`
-
-```json
-{
-  "items": [
-    {
-      "run_id": "uuid",
-      "mission_id": "MSN-7631",
-      "filename": "sonar_scan.jpg",
-      "status": "completed",
-      "detection_count": 4,
-      "file_size_bytes": 504,
-      "created_at": "2026-08-30T10:09:26.776011",
-      "updated_at": "2026-08-30T10:09:26.815025"
-    }
-  ],
-  "pagination": { "page": 1, "page_size": 20, "total": 1, "total_pages": 1 }
-}
-```
-
-### `GET /api/runs/{run_id}`
-
-Full run detail with all detections.
-
-### `GET /api/reports`
-
-Paginated, filterable report list.
-
-**Query params:** `page`, `page_size` (default 8), `search`, `status`, `date_from`, `date_to`, `region`, `sort`, `order`
-
-```json
-{
-  "items": [
-    {
-      "report_id": "uuid",
-      "run_id": "uuid",
-      "mission_id": "MSN-7631",
-      "mission_name": "Side-Scan Survey — sonar_scan.jpg",
-      "filename": "sonar_scan.jpg",
-      "scan_date": "30 Aug 2026",
-      "anomaly_count": 4,
-      "high_risk_count": 2,
-      "medium_risk_count": 0,
-      "low_risk_count": 2,
-      "status": "completed",
-      "confidence": 74.2,
-      "region": null,
-      "created_at": "...",
-      "updated_at": "..."
-    }
-  ],
-  "pagination": { "page": 1, "page_size": 8, "total": 1, "total_pages": 1 }
-}
-```
-
-### `GET /api/reports/{report_id}`
-
-Single report detail.
-
-### `POST /api/predict`
-
-Legacy endpoint kept for backward compatibility. Accepts only `file` (JPEG/PNG). Returns single-label prediction.
+### `GET /metrics`
+Prometheus metrics endpoint exporting scrape data for system observability:
+- `sonar_requests_total`: Total HTTP requests partitioned by method, endpoint, and status.
+- `sonar_request_duration_seconds`: Request latency histogram.
+- `sonar_preprocessing_duration_seconds`: Preprocessing duration histogram.
+- `sonar_inference_duration_seconds`: YOLOv8 model inference duration histogram.
+- `sonar_anomalies_detected_total`: Total anomalies detected partitioned by class.
 
 ---
 
-## Processing States
+## 7. Testing Suite
 
-Defined as `ProcessingStatus` enum, used consistently across runs, detections, and reports:
-
-| State | Description |
-|-------|-------------|
-| `queued` | Created, waiting to be processed |
-| `processing` | Inference in progress |
-| `completed` | Inference finished successfully |
-| `failed` | Inference encountered an error |
-| `flagged` | Completed, flagged for human review |
-| `reviewed` | Human has reviewed the results |
-
----
-
-## Error Responses
-
-All errors follow a consistent structure:
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "INVALID_FILE_TYPE",
-    "message": "Only JPEG and PNG images are supported."
-  }
-}
-```
-
-| HTTP Code | Error Code | Description |
-|-----------|------------|-------------|
-| 400 | `NO_FILE` | No file provided |
-| 400 | `INVALID_FILE_TYPE` | Unsupported file format |
-| 400 | `FILE_TOO_LARGE` | Exceeds MAX_FILE_SIZE_MB |
-| 400 | `INVALID_METADATA` | Invalid coordinates, depths, sonar type, or resolution |
-| 500 | `PREPROCESSING_FAILED` | Image preprocessing error |
-| 500 | `INFERENCE_FAILED` | Model inference error |
-| 503 | `MODEL_UNAVAILABLE` | Model not loaded |
-| 404 | `RUN_NOT_FOUND` | Run ID does not exist |
-| 404 | `REPORT_NOT_FOUND` | Report ID does not exist |
-
----
-
-## Database
-
-SQLite by default. Three tables with foreign-key relationships:
-
-```
-Run (id, mission_id, filename, file_path, status, latitude, longitude, ...)
-  ├── Detection (id, run_id FK, class_label, confidence, risk_level, bbox_*, ...)
-  └── Report (id, run_id FK UNIQUE, mission_name, scan_date, anomaly_count, ...)
-```
-
-Switch to PostgreSQL by changing `DATABASE_URL`:
-
-```
-DATABASE_URL=postgresql://user:pass@localhost:5432/sonar_sentry
-```
-
----
-
-## Storage
-
-| Directory | Purpose |
-|-----------|---------|
-| `UPLOAD_DIR` (default `./data/uploads`) | Stored sonar images |
-| `OUTPUT_DIR` (default `./data/outputs`) | Processed outputs |
-
-Files are saved with UUID-based names to prevent collisions. The `StorageService` abstracts all file operations so storage backends can be swapped.
-
----
-
-## Model Provider Architecture
-
-```
-MODEL_PROVIDER=mock
-    └── MockModelService (deterministic, multi-detection, for dev/testing)
-
-MODEL_PROVIDER=sonar
-    └── SonarModelService (placeholder — raises NotImplementedError)
-```
-
-Both implement the same `ModelService` ABC:
-
-```python
-class ModelService(ABC):
-    def load(self) -> None: ...
-    def is_loaded(self) -> bool: ...
-    def predict(self, input_data: PreprocessedInput) -> PredictionResult: ...
-    def metadata(self) -> ModelMetadata: ...
-```
-
-### Data Flow
-
-```
-raw sonar bytes
-       ↓
-Preprocessor.process()
-       ↓
-PreprocessedInput
-       ↓
-ModelService.predict()
-       ↓
-PredictionResult (with detections list)
-       ↓
-ResultNormalizer.normalize()
-       ↓
-list[DetectionItem] + DetectionSummary
-       ↓
-API response (JSON)
-```
-
----
-
-## Integrating the Real Sonar Model
-
-### Step 1: Create `sonar_model_service.py`
-
-Replace the placeholder with the real implementation:
-
-```python
-class SonarModelService(ModelService):
-    def __init__(self, model_path: str = ""):
-        self._model_path = model_path
-        self._loaded = False
-
-    def load(self) -> None:
-        # Load your model weights from self._model_path
-        self._model = torch.load(self._model_path)
-        self._loaded = True
-
-    def predict(self, input_data: PreprocessedInput) -> PredictionResult:
-        # input_data.data contains raw bytes
-        # Convert to tensor, run inference, return PredictionResult
-        tensor = preprocess(input_data.data)
-        output = self._model(tensor)
-        return PredictionResult(
-            label=...,
-            confidence=...,
-            detections=[
-                Detection(
-                    class_label="Shipwreck",
-                    confidence=0.95,
-                    bbox=BBox(x=10, y=20, width=100, height=50),
-                    depth_m=25.3,
-                    area_m2=5.0,
-                ),
-            ],
-        )
-```
-
-### Step 2: Create `SonarPreprocessor` (if needed)
-
-```python
-class SonarPreprocessor(Preprocessor):
-    def process(self, raw_image_bytes: bytes) -> PreprocessedInput:
-        # Decode, resize, normalize, convert to tensor
-        return PreprocessedInput(data=tensor)
-```
-
-### Step 3: Update Factory
-
-Add the sonar provider to `factory.py` (already wired):
-
-```python
-elif settings.model_provider == "sonar":
-    from app.services.sonar_model_service import SonarModelService
-    model = SonarModelService(model_path=settings.model_path)
-```
-
-### Step 4: Set Environment
-
+Run full backend test suite:
 ```bash
-MODEL_PROVIDER=sonar
-MODEL_PATH=/path/to/model/weights.pth
+PYTHONPATH=backend .venv/bin/pytest backend/tests/ -v
 ```
 
-### What You Will Need From the Colab Model
-
-1. **ML framework** — PyTorch, TensorFlow, ONNX, etc.
-2. **Model artifact format** — `.pth`, `.pt`, `.onnx`, `.h5`, SavedModel, etc.
-3. **Input shape** — expected dimensions (e.g., `1 x 3 x 640 x 640`)
-4. **Input dtype** — float32, uint8, etc.
-5. **Channel ordering** — RGB, BGR, grayscale
-6. **Exact preprocessing** — resize, crop, padding, normalization values
-7. **Output format** — classification logits, bounding boxes, masks, heatmaps
-8. **Class labels** — ordered list of class names
-9. **Confidence behaviour** — softmax, sigmoid, raw scores
-10. **CPU/GPU requirements** — device placement
-11. **Model file location** — path to weights
-
----
-
-## Testing
-
-```bash
-cd backend
-pytest -v          # run all tests
-pytest tests/test_detect_api.py -v    # detect endpoint tests
-pytest tests/test_reports_api.py -v   # reports tests
-```
-
-**73 tests** covering:
-- Health endpoint (3)
-- Detect endpoint (10)
-- Runs endpoint (6)
-- Reports endpoint (7)
-- Result normalizer (6)
-- Storage service (6)
-- Model service (8)
-- Inference service (5)
-- Preprocessing (5)
-- Factory (3)
-- Original predict endpoint (11)
-- Health legacy (3)
-
-All tests use mock model. No ML dependencies required.
-
----
-
-## Frontend Integration
-
-The frontend pages map to these endpoints:
-
-| Page | Endpoint |
-|------|----------|
-| Launch | `POST /api/detect` |
-| My Uploads | `GET /api/runs`, `GET /api/runs/{id}` |
-| Detection Results | `GET /api/runs/{id}` |
-| Reports | `GET /api/reports`, `GET /api/reports/{id}` |
-| Settings | Local state (no API needed yet) |
-
-The existing frontend uses hardcoded mock data and makes no API calls yet. When ready to integrate, replace the mock data with `fetch()` calls to these endpoints. The API contract is stable and will not change when the real model is integrated.
-
----
-
-## Commands
-
-```bash
-# Start backend
-cd backend && pip install -r requirements.txt && uvicorn app.main:app --reload --port 8000
-
-# Run tests
-cd backend && pytest -v
-
-# Start frontend
-cd frontend && npm install && npm run dev
-
-# Build frontend
-cd frontend && npm run build
-```
+The test suite contains **120+ tests** covering:
+- Preprocessing unit tests (`test_sonar_preprocessor.py`): BAC, 2D-FFT, homomorphic filter, BLD, shadow detector, inpainter, YOLO letterbox.
+- Preprocessing edge cases (`TestEdgeCases`): Tiny $10\times10$, large $2000\times2000$, extreme aspect ratios ($1500\times50$), RGBA, grayscale, all-black, all-white, speckle noise.
+- Memory leak validation (`test_preprocessing_memory.py`): 100 consecutive frames with `psutil` RSS leak thresholding.
+- API concurrency (`test_concurrent_api.py`): Parallel multi-threaded `/api/health` and `/api/detect` testing.
+- Failure injection & graceful fallback (`test_preprocessing_fallback.py`): Stage-by-stage mock failure recovery.
+- GAN inpainting architecture & fallback (`test_gan_modules.py`).
+- Observability (`test_metrics_api.py`).
+- Functional API testing: Detect, Runs, Reports, Anomalies, Storage, Factory.

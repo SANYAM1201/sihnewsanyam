@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "sonar-sentry"
+    static_configs:
+      - targets: ["sonar-api:8000"]
