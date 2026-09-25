@@ -177,10 +177,9 @@ class SidescanProcessor:
         crow, ccol = fh // 2, fw // 2
         mask = np.ones((fh, fw), dtype=np.float32)
 
-        # Zero out the horizontal frequency components around center column,
-        # but preserve low-frequency DC center
-        half_w = max(1, notch_width // 2)
-        mask[:, max(0, ccol - half_w) : min(fw, ccol + half_w + 1)] = 0.1
+        # Notch along the horizontal line frequency axis (u == 0)
+        half_w = max(0, (notch_width - 1) // 2)
+        mask[:, max(0, ccol - half_w) : min(fw, ccol + half_w + 1)] = 0.35
         # Restore DC neighborhood so overall image brightness is preserved
         dc_rad = 3
         mask[
@@ -190,18 +189,8 @@ class SidescanProcessor:
 
         fft_filtered = fft_shifted * mask
         fft_inv_shifted = fft.ifftshift(fft_filtered)
-        filtered = fft.ifft2(fft_inv_shifted)
-        filtered_mag = np.abs(filtered)
-
-        # Match dynamic range using strided sampling for fast percentile calculation
-        step_r = max(1, fh // 128)
-        step_c = max(1, fw // 128)
-        p_low, p_high = np.percentile(filtered_mag[::step_r, ::step_c], (0.5, 99.5))
-        if p_high > p_low:
-            norm = (filtered_mag - p_low) / (p_high - p_low) * 255.0
-            norm_uint8 = np.clip(norm, 0, 255).astype(np.uint8)
-        else:
-            norm_uint8 = np.clip(filtered_mag, 0, 255).astype(np.uint8)
+        filtered = np.real(fft.ifft2(fft_inv_shifted))
+        norm_uint8 = np.clip(filtered, 0, 255).astype(np.uint8)
 
         if downsample:
             return cv2.resize(norm_uint8, (w, h), interpolation=cv2.INTER_LINEAR)
@@ -212,12 +201,11 @@ class SidescanProcessor:
 
         Separates illumination (low frequency) from reflectance / structural
         target edges (high frequency) via log transform and high-pass unsharp mask.
-        Optimized with YCrCb color space and strided percentile clipping.
+        Optimized with YCrCb color space and physical scale preservation.
         """
         is_color = len(image.shape) == 3 and image.shape[2] == 3
 
         if is_color:
-            # YCrCb is ~30x faster to convert than LAB and perfectly isolates luminance
             ycrcb = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
             lum_channel = ycrcb[..., 0].astype(np.float32)
         else:
@@ -231,20 +219,11 @@ class SidescanProcessor:
         blurred = cv2.GaussianBlur(log_l, (ksize, ksize), sigmaX=8)
 
         # High-pass amplification of reflectance
-        sharpened_log = 0.8 * blurred + 1.25 * (log_l - blurred)
+        sharpened_log = 0.9 * blurred + 1.12 * (log_l - blurred)
 
         # Inverse exponential transform
         result_l = np.expm1(sharpened_log)
-
-        # Contrast stretch to 0-255 with fast strided percentiles
-        h, w = result_l.shape[:2]
-        step_r = max(1, h // 128)
-        step_c = max(1, w // 128)
-        p2, p98 = np.percentile(result_l[::step_r, ::step_c], (1, 99))
-        if p98 > p2:
-            norm_l = np.clip((result_l - p2) / (p98 - p2) * 255.0, 0, 255).astype(np.uint8)
-        else:
-            norm_l = np.clip(result_l, 0, 255).astype(np.uint8)
+        norm_l = np.clip(result_l, 0, 255).astype(np.uint8)
 
         if is_color:
             ycrcb[..., 0] = norm_l

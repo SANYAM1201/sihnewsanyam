@@ -162,6 +162,7 @@ class SonarModelService(ModelService):
                 source = raw
             if np.issubdtype(source.dtype, np.floating) and source.max() <= 1.05:
                 source = np.clip(source * 255.0, 0, 255).astype(np.uint8)
+            source = Image.fromarray(source)
         else:
             raise TypeError(
                 f"SonarModelService expects image bytes or numpy array, got {type(raw).__name__}"

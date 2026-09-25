@@ -34,8 +34,9 @@ class InferenceService:
             from app.monitoring.metrics import PREPROCESSING_TIME
 
             PREPROCESSING_TIME.observe(t_prep)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).debug("Failed to record preprocessing metrics: %s", e)
 
         t1 = time.perf_counter()
         result = self._model.predict(preprocessed)
@@ -44,8 +45,9 @@ class InferenceService:
             from app.monitoring.metrics import INFERENCE_TIME
 
             INFERENCE_TIME.observe(t_infer)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).debug("Failed to record inference metrics: %s", e)
 
         return result
 

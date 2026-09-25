@@ -89,6 +89,7 @@ class ShadowInpainter:
         inpaint_radius: int = 1,
         min_inpaint_pixels: int = 200,
         gan_model_path: str = "",
+        blend_factor: float = 0.35,
     ) -> None:
         method_lower = method.lower()
         if method_lower not in ("telea", "ns", "gan"):
@@ -97,6 +98,7 @@ class ShadowInpainter:
         self.inpaint_radius = max(1, int(inpaint_radius))
         self.min_inpaint_pixels = max(0, int(min_inpaint_pixels))
         self.gan_model_path = gan_model_path
+        self.blend_factor = float(np.clip(blend_factor, 0.0, 1.0))
         self._gan_inpainter = None
 
         if self.method == "gan":
@@ -161,7 +163,14 @@ class ShadowInpainter:
                 inpaintRadius=self.inpaint_radius,
                 flags=flag,
             )
-            return inpainted
+            # Retain shadow relief contrast needed for YOLO target identification
+            result = np.clip(
+                (1.0 - self.blend_factor) * image.astype(np.float32)
+                + self.blend_factor * inpainted.astype(np.float32),
+                0,
+                255,
+            ).astype(np.uint8)
+            return result
         except Exception as e:
             logger.warning(f"Shadow inpainting failed: {e}. Returning original image.")
             return image.copy()

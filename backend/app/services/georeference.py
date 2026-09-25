@@ -24,11 +24,29 @@ def georeference_offset(
     origin_lng: float,
     east_m: float,
     north_m: float,
+    heading: float = 0.0,
 ) -> tuple[float, float]:
-    lat = origin_lat + north_m / METERS_PER_DEGREE_LAT
+    """Calculate target WGS84 coordinate given origin, offsets, and vessel heading.
+
+    Args:
+        origin_lat: Origin latitude in degrees.
+        origin_lng: Origin longitude in degrees.
+        east_m: Cross-track / East offset in meters.
+        north_m: Along-track / North offset in meters.
+        heading: Vessel heading/azimuth in degrees clockwise from true north.
+    """
+    if heading != 0.0:
+        rad = math.radians(heading)
+        eff_east = east_m * math.cos(rad) + north_m * math.sin(rad)
+        eff_north = -east_m * math.sin(rad) + north_m * math.cos(rad)
+    else:
+        eff_east = east_m
+        eff_north = north_m
+
+    lat = origin_lat + eff_north / METERS_PER_DEGREE_LAT
     cos_lat = math.cos(math.radians(origin_lat))
     meters_per_deg_lng = METERS_PER_DEGREE_LAT * max(abs(cos_lat), 1e-6)
-    lng = origin_lng + east_m / meters_per_deg_lng
+    lng = origin_lng + eff_east / meters_per_deg_lng
     return round(lat, 7), round(lng, 7)
 
 
@@ -37,6 +55,7 @@ def georeference_bbox(
     origin_lng: float | None,
     bbox: BoundingBox | None,
     resolution: str | None,
+    heading: float = 0.0,
 ) -> tuple[float | None, float | None]:
     """Map a detection box to WGS84 using the scan origin as image (0, 0).
 
@@ -53,7 +72,9 @@ def georeference_bbox(
     center_y = bbox.y + bbox.height / 2.0
     east_m = center_x * meters_per_px
     north_m = -center_y * meters_per_px
-    return georeference_offset(float(origin_lat), float(origin_lng), east_m, north_m)
+    return georeference_offset(
+        float(origin_lat), float(origin_lng), east_m, north_m, heading=heading
+    )
 
 
 def with_detection_coordinates(
@@ -61,6 +82,9 @@ def with_detection_coordinates(
     origin_lat: float | None,
     origin_lng: float | None,
     resolution: str | None,
+    heading: float = 0.0,
 ) -> DetectionItem:
-    lat, lng = georeference_bbox(origin_lat, origin_lng, item.bbox, resolution)
+    lat, lng = georeference_bbox(
+        origin_lat, origin_lng, item.bbox, resolution, heading=heading
+    )
     return item.model_copy(update={"latitude": lat, "longitude": lng})

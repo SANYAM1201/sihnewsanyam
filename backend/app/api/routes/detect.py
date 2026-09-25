@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from sqlalchemy.orm import Session
@@ -169,6 +172,8 @@ async def detect(
             "depth_m": d.depth_m,
             "area_m2": d.area_m2,
             "position_info": d.position_info,
+            "latitude": d.latitude,
+            "longitude": d.longitude,
         }
         for d in detections
     ]
@@ -205,8 +210,8 @@ async def detect(
             model_name=model_meta.name,
             model_version=model_meta.version,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to create initial report: %s", e)
 
     return DetectResponse(
         run_id=run.id,

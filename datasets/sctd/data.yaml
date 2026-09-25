@@ -1,0 +1,9 @@
+path: sctd/
+train: images/val
+val: images/val
+
+names:
+  0: shipwreck
+  1: pipe
+  2: cylinder
+  3: net

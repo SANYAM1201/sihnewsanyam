@@ -16,3 +16,8 @@ backend/data/outputs/
 frontend/node_modules/
 frontend/dist/
 .bin/
+runs/
+datasets/sctd_prep/
+*.onnx
+
+*.cache

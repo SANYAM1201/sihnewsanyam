@@ -65,6 +65,8 @@ class Detection(Base):
     depth_m: Mapped[float | None] = mapped_column(Float, nullable=True)
     area_m2: Mapped[float | None] = mapped_column(Float, nullable=True)
     position_info: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
     run: Mapped["Run"] = relationship(back_populates="detections")
