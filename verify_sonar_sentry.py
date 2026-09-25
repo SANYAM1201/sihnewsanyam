@@ -242,6 +242,12 @@ def stage_val() -> None:
             Image.fromarray(out).save(dst / f.name)
         shutil.copytree(ds / "labels" / "val", REPO / "datasets" / "sctd_prep" / "labels" / "val",
                         dirs_exist_ok=True)
+        if (ds / "images" / "train").exists():
+            shutil.copytree(ds / "images" / "train", REPO / "datasets" / "sctd_prep" / "images" / "train",
+                            dirs_exist_ok=True)
+        if (ds / "labels" / "train").exists():
+            shutil.copytree(ds / "labels" / "train", REPO / "datasets" / "sctd_prep" / "labels" / "train",
+                            dirs_exist_ok=True)
         shutil.copy(ds / "data.yaml", REPO / "datasets" / "sctd_prep" / "data.yaml")
     yaml_text = (REPO / "datasets" / "sctd_prep" / "data.yaml").read_text()
     (REPO / "datasets" / "sctd_prep" / "data.yaml").write_text(
@@ -338,6 +344,8 @@ def stage_api() -> None:
     cols = [c[1] for c in cur.fetchall()]
     check("detections table has latitude column", "latitude" in cols, f"cols={cols}")
     check("detections table has longitude column", "longitude" in cols)
+    check("detections table has sadh_height_m column", "sadh_height_m" in cols)
+    check("detections table has physics_confidence column", "physics_confidence" in cols)
     if "latitude" in cols:
         cur.execute("SELECT COUNT(*), COUNT(latitude) FROM detections WHERE run_id=? ", (run_id,))
         n, nlat = cur.fetchone()
@@ -357,7 +365,16 @@ def stage_api() -> None:
     check("fake .xtf rejected (until real XTF route exists)", r.status_code >= 400,
           f"{r.status_code} — after Phase 1.1 this flips: real .xtf MUST be accepted here")
 
-    # 4.6 mocked-hash detector cannot be triggered via any response
+    # 4.6 real XTF ingestion test: Triton format binary parsing & waterfall reconstruction
+    from app.services.xtf_parser import create_synthetic_xtf
+    real_xtf = create_synthetic_xtf(num_pings=32, samples_per_channel=256)
+    r_xtf = requests.post(f"{base}/api/detect/xtf",
+                          files={"file": ("survey_mission.xtf", real_xtf, "application/octet-stream")},
+                          data={"latitude": "12.97", "longitude": "80.25", "sonar_type": "Side-Scan",
+                                "resolution": "0.5 m/px", "depth_min": "10", "depth_max": "30"})
+    check("real .xtf accepted, parsed and processed via /api/detect/xtf", r_xtf.status_code == 200, f"status={r_xtf.status_code}")
+
+    # 4.7 mocked-hash detector cannot be triggered via any response
     check("no MOCK_ labels in any detection", all("MOCK" not in d["class_label"] for d in dets))
 
 

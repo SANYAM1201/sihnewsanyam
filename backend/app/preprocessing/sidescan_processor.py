@@ -90,7 +90,8 @@ class SidescanProcessor:
         """Column-wise Beam Angle Correction (BAC).
 
         Acoustic energy drops as grazing angle flattens across range columns.
-        Normalizes each range column by its mean intensity profile.
+        Applies a smoothed 1D profile across range columns to normalize the broad
+        acoustic beam pattern without self-attenuating localized debris targets.
         """
         is_color = len(image.shape) == 3 and image.shape[2] == 3
 
@@ -101,15 +102,23 @@ class SidescanProcessor:
 
         # Compute column means across pings (axis 0)
         col_means = np.mean(gray, axis=0, keepdims=True)
-        global_mean = float(np.mean(col_means))
+
+        # Apply 1D Gaussian smoothing across range columns to prevent target self-attenuation
+        if col_means.shape[1] > 10:
+            from scipy.ndimage import gaussian_filter1d
+            smoothed_profile = gaussian_filter1d(col_means, sigma=min(6.0, col_means.shape[1] / 20.0), axis=1)
+        else:
+            smoothed_profile = col_means
+
+        global_mean = float(np.mean(smoothed_profile))
         if global_mean <= 1e-3:
             return image
 
         # Avoid zero-division on completely black columns (e.g. padding/blind zone)
-        col_means = np.where(col_means < 1.0, 1.0, col_means)
+        smoothed_profile = np.where(smoothed_profile < 1.0, 1.0, smoothed_profile)
 
-        # Scale each column so its mean equals the global average
-        scale_factor = global_mean / col_means
+        # Scale each column so its smoothed trend equals the global average
+        scale_factor = global_mean / smoothed_profile
 
         if is_color:
             # Broadcast across all 3 channels
@@ -178,8 +187,7 @@ class SidescanProcessor:
         mask = np.ones((fh, fw), dtype=np.float32)
 
         # Notch along the horizontal line frequency axis (u == 0)
-        half_w = max(0, (notch_width - 1) // 2)
-        mask[:, max(0, ccol - half_w) : min(fw, ccol + half_w + 1)] = 0.35
+        mask[:, ccol] = 0.60
         # Restore DC neighborhood so overall image brightness is preserved
         dc_rad = 3
         mask[
@@ -201,7 +209,7 @@ class SidescanProcessor:
 
         Separates illumination (low frequency) from reflectance / structural
         target edges (high frequency) via log transform and high-pass unsharp mask.
-        Optimized with YCrCb color space and physical scale preservation.
+        Tuned with gentle edge preservation to eliminate bounding box distortion.
         """
         is_color = len(image.shape) == 3 and image.shape[2] == 3
 
@@ -215,11 +223,10 @@ class SidescanProcessor:
         log_l = np.log1p(lum_channel)
 
         # Low-pass estimation of illumination via Gaussian blur
-        ksize = 25
-        blurred = cv2.GaussianBlur(log_l, (ksize, ksize), sigmaX=8)
+        blurred = cv2.GaussianBlur(log_l, (0, 0), sigmaX=3.0)
 
-        # High-pass amplification of reflectance
-        sharpened_log = 0.9 * blurred + 1.12 * (log_l - blurred)
+        # Gentle edge-preserving reflectance boost without overshoot halo
+        sharpened_log = 1.00 * blurred + 1.04 * (log_l - blurred)
 
         # Inverse exponential transform
         result_l = np.expm1(sharpened_log)

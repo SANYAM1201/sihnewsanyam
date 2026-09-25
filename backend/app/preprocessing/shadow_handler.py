@@ -89,7 +89,7 @@ class ShadowInpainter:
         inpaint_radius: int = 1,
         min_inpaint_pixels: int = 200,
         gan_model_path: str = "",
-        blend_factor: float = 0.35,
+        blend_factor: float = 0.30,
     ) -> None:
         method_lower = method.lower()
         if method_lower not in ("telea", "ns", "gan"):
@@ -153,24 +153,25 @@ class ShadowInpainter:
                     flags=flag,
                 )
                 full_inpainted = cv2.resize(small_inpainted, (w, h), interpolation=cv2.INTER_LINEAR)
-                if len(image.shape) == 3:
-                    return np.where(mask_2d[..., None] > 0, full_inpainted, image)
-                return np.where(mask_2d > 0, full_inpainted, image)
+            else:
+                full_inpainted = cv2.inpaint(
+                    image,
+                    mask_2d,
+                    inpaintRadius=self.inpaint_radius,
+                    flags=flag,
+                )
 
-            inpainted = cv2.inpaint(
-                image,
-                mask_2d,
-                inpaintRadius=self.inpaint_radius,
-                flags=flag,
-            )
             # Retain shadow relief contrast needed for YOLO target identification
-            result = np.clip(
+            blended = np.clip(
                 (1.0 - self.blend_factor) * image.astype(np.float32)
-                + self.blend_factor * inpainted.astype(np.float32),
+                + self.blend_factor * full_inpainted.astype(np.float32),
                 0,
                 255,
             ).astype(np.uint8)
-            return result
+
+            if len(image.shape) == 3:
+                return np.where(mask_2d[..., None] > 0, blended, image)
+            return np.where(mask_2d > 0, blended, image)
         except Exception as e:
             logger.warning(f"Shadow inpainting failed: {e}. Returning original image.")
             return image.copy()

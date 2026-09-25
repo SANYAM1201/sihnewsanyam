@@ -1,8 +1,10 @@
-from __future__ import annotations
-
 import logging
+import math
 import uuid
 from datetime import datetime, timezone
+
+import cv2
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,13 @@ from app.services.georeference import with_detection_coordinates
 from app.services.inference_service import InferenceService
 from app.services.report_service import ReportService
 from app.services.result_normalizer import ResultNormalizer
+from app.services.sadh_physics import (
+    compute_physics_confidence,
+    estimate_target_height,
+    extract_sadh_from_bbox,
+)
 from app.services.storage_service import StorageService
+from app.services.xtf_parser import XtfParseError, parse_xtf_bytes
 
 router = APIRouter(tags=["detect"])
 
@@ -52,6 +60,8 @@ def _has_valid_signature(data: bytes, content_type: str) -> bool:
         return data[:4] == _PNG_MAGIC
     if content_type == "image/tiff":
         return data[:4] == _TIFF_MAGIC or data[:4] == _TIFF_MAGIC_BE
+    if content_type in ("application/x-xtf", "application/octet-stream"):
+        return len(data) >= 1024 and (data[0] == 0x7B or data[:2] == b"\xface")
     return False
 
 
@@ -82,14 +92,17 @@ async def detect(
         raise NoFileError()
 
     content_type = (file.content_type or "").lower()
-    if content_type not in _ALLOWED_MIMES:
+    is_xtf = (file.filename or "").lower().endswith(".xtf")
+    if is_xtf:
+        content_type = "application/x-xtf"
+    elif content_type not in _ALLOWED_MIMES:
         if contents[:4] == _PNG_MAGIC:
             content_type = "image/png"
         elif contents[:3] == _JPEG_MAGIC:
             content_type = "image/jpeg"
         elif contents[:4] in {_TIFF_MAGIC, _TIFF_MAGIC_BE}:
             content_type = "image/tiff"
-    if content_type not in _ALLOWED_MIMES:
+    if content_type not in _ALLOWED_MIMES and content_type != "application/x-xtf":
         raise InvalidFileTypeError()
 
     if len(contents) > settings.max_file_size_mb * 1024 * 1024:
@@ -134,8 +147,27 @@ async def detect(
         depth_max=depth_max,
     )
 
+    xtf_heading = 0.0
+    inference_payload = contents
+    if is_xtf:
+        try:
+            waterfall_np, xtf_meta = parse_xtf_bytes(contents)
+            success, png_bytes = cv2.imencode(".png", waterfall_np)
+            if not success:
+                raise InvalidFileTypeError("Failed to render waterfall sonogram from XTF")
+            inference_payload = png_bytes.tobytes()
+            if xtf_meta.get("avg_latitude"):
+                latitude = xtf_meta["avg_latitude"]
+            if xtf_meta.get("avg_longitude"):
+                longitude = xtf_meta["avg_longitude"]
+            xtf_heading = xtf_meta.get("avg_heading_deg", 0.0)
+        except Exception as e:
+            logger.warning("XTF parsing failed: %s", e)
+            run_repo.update(run.id, status="failed", error_message="XTF parsing failed")
+            raise InvalidFileTypeError("Corrupt or invalid Triton XTF file")
+
     try:
-        prediction_result = inference_service.predict(contents)
+        prediction_result = inference_service.predict(inference_payload)
     except Exception:
         run_repo.update(run.id, status="failed", error_message="Inference failed")
         raise InferenceFailedError()
@@ -150,9 +182,30 @@ async def detect(
         normalizer=normalizer,
     )
     detections = [
-        with_detection_coordinates(item, latitude, longitude, resolution)
+        with_detection_coordinates(item, latitude, longitude, resolution, heading=xtf_heading)
         for item in detections
     ]
+
+    # Apply SADH acoustic shadow physics
+    alt = (depth_max - depth_min) if (depth_max is not None and depth_min is not None and depth_max > depth_min) else 15.0
+    enhanced_detections = []
+    for item in detections:
+        if item.bbox is not None:
+            lat_offset_m = abs(item.bbox.x - 0.5) * 50.0 * 2.0
+            slant_range_m = max(5.0, math.sqrt(lat_offset_m ** 2 + alt ** 2))
+            shadow_len_m, has_shadow = extract_sadh_from_bbox(
+                item.bbox.x, item.bbox.y, item.bbox.width, item.bbox.height,
+                img_w=640, img_h=640, altitude_m=alt, range_res_m=0.05
+            )
+            h_est = estimate_target_height(shadow_len_m, alt, slant_range_m)
+            physics_conf = compute_physics_confidence(item.class_label, item.confidence, h_est, has_shadow)
+            enhanced_detections.append(item.model_copy(update={
+                "sadh_height_m": h_est,
+                "physics_confidence": physics_conf,
+            }))
+        else:
+            enhanced_detections.append(item)
+    detections = enhanced_detections
     summary = normalizer._build_summary(detections)
 
     model_meta = inference_service.metadata()
@@ -174,6 +227,8 @@ async def detect(
             "position_info": d.position_info,
             "latitude": d.latitude,
             "longitude": d.longitude,
+            "sadh_height_m": d.sadh_height_m,
+            "physics_confidence": d.physics_confidence,
         }
         for d in detections
     ]
@@ -311,3 +366,35 @@ def _apply_detection_filters(
             continue
         filtered.append(item)
     return filtered, normalizer._build_summary(filtered)
+
+
+@router.post("/api/detect/xtf", response_model=DetectResponse)
+async def detect_xtf(
+    request: Request,
+    file: UploadFile = File(...),
+    latitude: float = Form(default=12.9716),
+    longitude: float = Form(default=80.2520),
+    sonar_type: str = Form(default="SSS-Dual"),
+    resolution: str = Form(default="1024x768"),
+    depth_min: float = Form(default=0.0),
+    depth_max: float = Form(default=30.0),
+    confidence_threshold: int = Form(default=25),
+    selected_classes: str = Form(default=""),
+    min_object_size: int = Form(default=5),
+    db: Session = Depends(get_db),
+) -> DetectResponse:
+    """Hydrographic eXtended Triton Format (XTF) ingestion & waterfall detection endpoint."""
+    return await detect(
+        request=request,
+        file=file,
+        latitude=latitude,
+        longitude=longitude,
+        sonar_type=sonar_type,
+        resolution=resolution,
+        depth_min=depth_min,
+        depth_max=depth_max,
+        confidence_threshold=confidence_threshold,
+        selected_classes=selected_classes,
+        min_object_size=min_object_size,
+        db=db,
+    )

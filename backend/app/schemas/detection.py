@@ -39,6 +39,8 @@ class DetectionItem(BaseModel):
     position_info: str | None = None
     latitude: float | None = None
     longitude: float | None = None
+    sadh_height_m: float | None = None
+    physics_confidence: float | None = None
 
 
 class DetectionSummary(BaseModel):

@@ -43,11 +43,22 @@ def georeference_offset(
         eff_east = east_m
         eff_north = north_m
 
-    lat = origin_lat + eff_north / METERS_PER_DEGREE_LAT
-    cos_lat = math.cos(math.radians(origin_lat))
-    meters_per_deg_lng = METERS_PER_DEGREE_LAT * max(abs(cos_lat), 1e-6)
-    lng = origin_lng + eff_east / meters_per_deg_lng
-    return round(lat, 7), round(lng, 7)
+    try:
+        import pyproj
+
+        geod = pyproj.Geod(ellps="WGS84")
+        dist = math.hypot(eff_east, eff_north)
+        if dist < 1e-4:
+            return round(origin_lat, 7), round(origin_lng, 7)
+        azimuth = math.degrees(math.atan2(eff_east, eff_north)) % 360.0
+        target_lon, target_lat, _ = geod.fwd(origin_lng, origin_lat, azimuth, dist)
+        return round(float(target_lat), 7), round(float(target_lon), 7)
+    except Exception:
+        lat = origin_lat + eff_north / METERS_PER_DEGREE_LAT
+        cos_lat = math.cos(math.radians(origin_lat))
+        meters_per_deg_lng = METERS_PER_DEGREE_LAT * max(abs(cos_lat), 1e-6)
+        lng = origin_lng + eff_east / meters_per_deg_lng
+        return round(lat, 7), round(lng, 7)
 
 
 def georeference_bbox(
