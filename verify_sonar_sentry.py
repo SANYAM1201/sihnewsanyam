@@ -218,40 +218,36 @@ def stage_val() -> None:
     from PIL import Image
     from app.preprocessing.sonar_preprocessor import SonarPreprocessor
 
-    ds = Path("datasets/sctd")
+    ds = Path("datasets/screenshots_dev") if (REPO / "datasets" / "screenshots_dev").exists() else Path("datasets/sctd")
     if not (ds / "data.yaml").exists():
-        check("labeled dataset present (datasets/sctd/data.yaml)", False,
-              "download SCTD / marine-debris SSS set and convert to YOLO format")
+        check(f"labeled dataset present ({ds}/data.yaml)", False,
+              "provide development set in datasets/screenshots_dev/ or SCTD benchmark in datasets/sctd/")
         return
-    check("labeled dataset present", True)
+    check(f"labeled dataset present ({ds.name})", True)
 
     # 3.1 Bake a preprocessed copy of the val split (labels unchanged: same geometry)
     pre = SonarPreprocessor(apply_sss_processing=True, apply_shadow_inpainting=True)
     src_val = ds / "images" / "val"
-    dst = REPO / "datasets" / "sctd_prep" / "images" / "val"
-    if not dst.exists():
-        dst.mkdir(parents=True, exist_ok=True)
-        for f in sorted(src_val.glob("*")):
-            img = np.array(Image.open(f).convert("RGB"))
-            out = pre.process_array(img)
-            # process_array returns the CHW tensor; save its HWC image form
-            if out.ndim == 3 and out.shape[0] in (1, 3):
-                out = np.transpose(out, (1, 2, 0))
-            if out.dtype != np.uint8:
-                out = (np.clip(out, 0, 1) * 255).astype(np.uint8) if out.max() <= 1.05 else out.astype(np.uint8)
-            Image.fromarray(out).save(dst / f.name)
-        shutil.copytree(ds / "labels" / "val", REPO / "datasets" / "sctd_prep" / "labels" / "val",
-                        dirs_exist_ok=True)
-        if (ds / "images" / "train").exists():
-            shutil.copytree(ds / "images" / "train", REPO / "datasets" / "sctd_prep" / "images" / "train",
-                            dirs_exist_ok=True)
-        if (ds / "labels" / "train").exists():
-            shutil.copytree(ds / "labels" / "train", REPO / "datasets" / "sctd_prep" / "labels" / "train",
-                            dirs_exist_ok=True)
-        shutil.copy(ds / "data.yaml", REPO / "datasets" / "sctd_prep" / "data.yaml")
-    yaml_text = (REPO / "datasets" / "sctd_prep" / "data.yaml").read_text()
-    (REPO / "datasets" / "sctd_prep" / "data.yaml").write_text(
-        yaml_text.replace("sctd/", str(REPO / "datasets/sctd_prep") + "/"))
+    dst_dir = REPO / "datasets" / f"{ds.name}_prep"
+    if dst_dir.exists():
+        shutil.rmtree(dst_dir)
+    dst = dst_dir / "images" / "val"
+    dst.mkdir(parents=True, exist_ok=True)
+    for f in sorted(src_val.glob("*")):
+        img = np.array(Image.open(f).convert("RGB"))
+        out = pre.process_array(img)
+        # process_array returns the CHW tensor; save its HWC image form
+        if out.ndim == 3 and out.shape[0] in (1, 3):
+            out = np.transpose(out, (1, 2, 0))
+        if out.dtype != np.uint8:
+            out = (np.clip(out, 0, 1) * 255).astype(np.uint8) if out.max() <= 1.05 else out.astype(np.uint8)
+        Image.fromarray(out).save(dst / f.name)
+    shutil.copytree(ds / "labels" / "val", dst_dir / "labels" / "val", dirs_exist_ok=True)
+    if (ds / "images" / "train").exists():
+        shutil.copytree(ds / "images" / "train", dst_dir / "images" / "train", dirs_exist_ok=True)
+    if (ds / "labels" / "train").exists():
+        shutil.copytree(ds / "labels" / "train", dst_dir / "labels" / "train", dirs_exist_ok=True)
+    shutil.copy(ds / "data.yaml", dst_dir / "data.yaml")
 
 
     def yolo_val(data_yaml: Path, project: str) -> dict:
@@ -273,7 +269,7 @@ def stage_val() -> None:
     print("  running baseline (raw) validation…")
     raw = yolo_val(ds / "data.yaml", "raw")
     print("  running preprocessed validation…")
-    enh = yolo_val(REPO / "datasets" / "sctd_prep" / "data.yaml", "prep")
+    enh = yolo_val(dst_dir / "data.yaml", "prep")
 
     if raw and enh:
         print(f"\n  {'metric':<12}{'RAW':>10}{'ENHANCED':>12}{'delta':>10}")

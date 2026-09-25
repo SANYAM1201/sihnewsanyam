@@ -1,4 +1,3 @@
-path: sctd/
 train: images/train
 val: images/val
 
