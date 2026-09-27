@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { CircleMarker, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
+import { useEffect, useState } from 'react'
+import { CircleMarker, ImageOverlay, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import styles from './GeoMap.module.css'
@@ -15,6 +15,15 @@ const STREETS = {
 }
 
 const FALLBACK_CENTER = [13.0800, 80.3600]
+
+// ⭐ NEW: Development mode mock overlay for testing
+const DEV_MODE = import.meta.env.MODE === 'development'
+const MOCK_OVERLAY = DEV_MODE ? {
+  id: 'mock_swath',
+  imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1e/Indian_Ocean_location_map.svg/1024px-Indian_Ocean_location_map.svg.png',
+  bounds: [[10.5, 80.0], [11.0, 80.5]], // Bay of Bengal test coordinates
+  opacity: 0.7
+} : null
 
 function FlyTo({ lat, lng, zoom }) {
   const map = useMap()
@@ -71,6 +80,39 @@ function getBadgeClass(point) {
   return styles.badgeLow
 }
 
+// ⭐ NEW: Swath Overlay Control Component
+function SwathOverlayControl({ swathOverlays, setSwathOverlays, showSwath, setShowSwath, opacity, setOpacity }) {
+  return (
+    <div className={styles.swathControl}>
+      <div className={styles.controlGroup}>
+        <label className={styles.controlLabel}>
+          <input
+            type="checkbox"
+            checked={showSwath}
+            onChange={(e) => setShowSwath(e.target.checked)}
+            className={styles.controlCheckbox}
+          />
+          Show Sonar Swath
+        </label>
+      </div>
+      <div className={styles.controlGroup}>
+        <label className={styles.controlLabel}>
+          Opacity: {Math.round(opacity * 100)}%
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={opacity}
+            onChange={(e) => setOpacity(parseFloat(e.target.value))}
+            className={styles.opacitySlider}
+          />
+        </label>
+      </div>
+    </div>
+  )
+}
+
 export default function GeoMap({
   points = [],
   selectedId,
@@ -79,9 +121,60 @@ export default function GeoMap({
   basemap = 'satellite',
   swathPolygon = null,
   vesselTrack = null,
+  detections = [], // ⭐ NEW: Add detections prop for GeoTIFF overlays
 }) {
   const tile = basemap === 'streets' ? STREETS : SATELLITE
   const selected = points.find((p) => p.id === selectedId)
+
+  // ⭐ NEW: State for swath overlays
+  const [swathOverlays, setSwathOverlays] = useState([])
+  const [showSwath, setShowSwath] = useState(true)
+  const [opacity, setOpacity] = useState(0.7)
+
+  // ⭐ NEW: Fetch GeoTIFF bounds for detections with geotiff_available flag
+  useEffect(() => {
+    const fetchSwathOverlays = async () => {
+      const overlays = []
+
+      // Add mock overlay in development mode
+      if (DEV_MODE && MOCK_OVERLAY) {
+        overlays.push(MOCK_OVERLAY)
+      }
+
+      // Fetch real overlays for detections with GeoTIFF
+      for (const detection of detections) {
+        if (detection.geotiff_available) {
+          try {
+            const response = await fetch(`/api/export/geotiff/${detection.id}/bounds`)
+            if (response.ok) {
+              const boundsData = await response.json()
+              overlays.push({
+                id: detection.id,
+                imageUrl: boundsData.image_url || `/api/export/geotiff/${detection.id}/render`,
+                bounds: [[boundsData.south, boundsData.west], [boundsData.north, boundsData.east]],
+                opacity: opacity
+              })
+            }
+          } catch (error) {
+            console.debug(`Failed to fetch GeoTIFF bounds for detection ${detection.id}:`, error)
+          }
+        }
+      }
+
+      setSwathOverlays(overlays)
+    }
+
+    fetchSwathOverlays()
+  }, [detections, opacity])
+
+  // ⭐ NEW: Update opacity for all overlays when slider changes
+  useEffect(() => {
+    if (swathOverlays.length > 0) {
+      setSwathOverlays(prev =>
+        prev.map(overlay => ({ ...overlay, opacity }))
+      )
+    }
+  }, [opacity])
 
   return (
     <div className={styles.mapShell}>
@@ -118,6 +211,17 @@ export default function GeoMap({
             }}
           />
         )}
+
+        {/* ⭐ NEW: ImageOverlay for Sonar Swath - Rendered after Polygon/Marker layers */}
+        {showSwath && swathOverlays.map(overlay => (
+          <ImageOverlay
+            key={overlay.id}
+            url={overlay.imageUrl}
+            bounds={overlay.bounds}
+            opacity={overlay.opacity}
+            zIndex={10}
+          />
+        ))}
 
         {points.map((point) => {
           const active = point.id === selectedId
@@ -193,6 +297,16 @@ export default function GeoMap({
             </CircleMarker>
           )
         })}
+
+        {/* ⭐ NEW: Swath Overlay Control - Positioned in top-right */}
+        <SwathOverlayControl
+          swathOverlays={swathOverlays}
+          setSwathOverlays={setSwathOverlays}
+          showSwath={showSwath}
+          setShowSwath={setShowSwath}
+          opacity={opacity}
+          setOpacity={setOpacity}
+        />
       </MapContainer>
 
       <div className={styles.legendBox}>

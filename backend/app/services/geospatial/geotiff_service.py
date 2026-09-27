@@ -9,19 +9,26 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+import io
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
+from PIL import Image as PILImage
 
 try:
     import rasterio
     from rasterio.crs import CRS
+    from rasterio.merge import merge
     from rasterio.transform import from_bounds
     from rasterio.warp import Resampling, reproject
+    from rasterio.windows import from_bounds as window_from_bounds
 except ImportError:
     rasterio = None
+
+# ⭐ Output directory for GeoTIFF files
+GEOTIFF_OUTPUT_DIR = Path("backend/export/geotiff")
 
 from backend.app.services.geospatial.geodesy import (
     GeodeticCoordinate,
@@ -257,6 +264,119 @@ class GeoTIFFService:
                 dst.write(dst_array, 1)
 
         return out_path
+
+    # ⭐ NEW: Cross-swath mosaic blending with feathering
+    def blend_swath_mosaic(self, run_ids: List[str], output_path: Optional[str] = None) -> bytes:
+        """Merge and feather-blend multiple georeferenced GeoTIFF swaths into one mosaic.
+
+        Args:
+            run_ids: list of survey run IDs whose GeoTIFFs are already on disk at
+                     GEOTIFF_OUTPUT_DIR/{run_id}.tif
+            output_path: optional path to write the mosaic; if None returns bytes
+
+        Returns:
+            PNG bytes of the blended mosaic (for API streaming)
+        """
+        if rasterio is None:
+            raise RuntimeError("rasterio not available for mosaic blending")
+
+        src_files = []
+        datasets = []
+
+        for rid in run_ids:
+            tif_path = self.export_dir / f"{rid}.tif"
+            if not tif_path.exists():
+                tif_path = GEOTIFF_OUTPUT_DIR / f"{rid}.tif"
+            if not tif_path.exists():
+                continue
+            ds = rasterio.open(tif_path)
+            datasets.append(ds)
+            src_files.append(tif_path)
+
+        if not datasets:
+            raise ValueError("No valid GeoTIFF files found for provided run_ids")
+
+        # Step 2: Merge with rasterio (handles reprojection + pixel alignment automatically)
+        mosaic_array, mosaic_transform = merge(
+            datasets,
+            method="first",
+            resampling=Resampling.bilinear,
+            nodata=0,
+        )
+
+        mosaic_meta = datasets[0].meta.copy()
+        mosaic_meta.update({
+            "height": mosaic_array.shape[1],
+            "width": mosaic_array.shape[2],
+            "transform": mosaic_transform,
+        })
+
+        # Step 3: Feathering - distance-weighted blending in overlap zones
+        blended = np.zeros_like(mosaic_array, dtype=np.float32)
+        weight_sum = np.zeros(mosaic_array.shape[1:], dtype=np.float32)
+
+        for ds in datasets:
+            try:
+                win = window_from_bounds(
+                    *ds.bounds,
+                    transform=mosaic_transform,
+                    width=mosaic_array.shape[2],
+                    height=mosaic_array.shape[1],
+                )
+                row_off = max(0, int(win.row_off))
+                col_off = max(0, int(win.col_off))
+
+                read_h = min(int(win.height), mosaic_array.shape[1] - row_off)
+                read_w = min(int(win.width), mosaic_array.shape[2] - col_off)
+                if read_h <= 0 or read_w <= 0:
+                    continue
+
+                tile_read = ds.read(
+                    out_shape=(ds.count, read_h, read_w),
+                    resampling=Resampling.bilinear,
+                ).astype(np.float32)
+
+                h, w = tile_read.shape[1], tile_read.shape[2]
+
+                # Distance-to-edge weight map (cosine taper - smooth feathering)
+                rows = np.linspace(0, np.pi, h)
+                cols = np.linspace(0, np.pi, w)
+                row_weight = np.sin(rows)
+                col_weight = np.sin(cols)
+                weight_2d = np.outer(row_weight, col_weight)
+                weight_2d = np.clip(weight_2d, 0.01, 1.0)
+
+                # Accumulate
+                blended[:, row_off : row_off + h, col_off : col_off + w] += tile_read * weight_2d
+                weight_sum[row_off : row_off + h, col_off : col_off + w] += weight_2d
+            except Exception as e:
+                logger.warning("Error during swath feathering tile read: %s", e)
+
+        # Normalize
+        weight_sum = np.where(weight_sum == 0, 1.0, weight_sum)
+        blended = blended / weight_sum
+        blended = np.clip(blended, 0, 255).astype(np.uint8)
+
+        # Close all source datasets
+        for ds in datasets:
+            ds.close()
+
+        # Convert to PNG bytes
+        if blended.shape[0] == 1:
+            img_arr = blended[0]
+            pil_img = PILImage.fromarray(img_arr, mode="L")
+        else:
+            img_arr = np.transpose(blended[:3], (1, 2, 0))
+            pil_img = PILImage.fromarray(img_arr, mode="RGB")
+
+        if output_path:
+            out_p = Path(output_path)
+            out_p.parent.mkdir(parents=True, exist_ok=True)
+            pil_img.save(str(out_p), format="PNG")
+
+        buf = io.BytesIO()
+        pil_img.save(buf, format="PNG")
+        return buf.getvalue()
 
 
 geotiff_service = GeoTIFFService()

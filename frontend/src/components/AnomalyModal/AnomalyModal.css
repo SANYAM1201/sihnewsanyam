@@ -321,3 +321,113 @@
     opacity: 1;
   }
 }
+
+/* ⭐ NEW: Visual Diagnostics Section */
+.visual-diagnostics-box {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.visual-diagnostics-title {
+  margin: 0 0 12px 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.diagnostics-icon {
+  font-size: 1rem;
+}
+
+.canvas-container {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.canvas-panel {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.canvas-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.canvas-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: 0.04em;
+}
+
+.canvas-coords {
+  font-family: monospace;
+  font-size: 0.65rem;
+  color: #64748b;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.diagnostic-canvas {
+  width: 100%;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  background: #0f172a;
+}
+
+.canvas-error {
+  background: #1e293b !important;
+}
+
+.canvas-placeholder {
+  position: absolute;
+  top: 55%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-align: center;
+  pointer-events: none;
+}
+
+.mask-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 0.65rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.legend-color.shadow {
+  background: #000000;
+}
+
+.legend-color.seafloor {
+  background: #dcdcdc;
+}

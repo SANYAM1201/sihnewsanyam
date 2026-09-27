@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import io
+from pathlib import Path
 from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+import numpy as np
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services.export_service import ExportService
+from app.services.geospatial.geotiff_service import GEOTIFF_OUTPUT_DIR
 
 router = APIRouter(prefix="/api/export", tags=["export"])
 
@@ -77,7 +82,6 @@ async def export_dossier(
     run_id: Optional[str] = None,
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
-    from pathlib import Path
     pdf_path = ExportService(db).generate_dossier_pdf(run_id)
     path_obj = Path(pdf_path)
     if not path_obj.exists():
@@ -94,12 +98,123 @@ async def export_dossier(
     )
 
 
+# ⭐ GeoTIFF Mosaic Endpoint
+@router.post("/geotiff/mosaic")
+async def get_swath_mosaic(
+    run_ids: list[str],
+) -> StreamingResponse:
+    """Blend multiple survey swaths into a single mosaic PNG."""
+    try:
+        from app.services.geospatial.geotiff_service import geotiff_service
+
+        png_bytes = geotiff_service.blend_swath_mosaic(run_ids)
+        return StreamingResponse(
+            iter([png_bytes]),
+            media_type="image/png",
+            headers={"Content-Disposition": "attachment; filename=swath_mosaic.png"},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ⭐ Get GeoTIFF Bounds Endpoint
+@router.get("/geotiff/{detection_id}/bounds")
+async def get_geotiff_bounds(
+    detection_id: str,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Get GeoTIFF bounds for a specific detection."""
+    from app.models.orm import Detection
+    import rasterio
+
+    det = db.query(Detection).filter(Detection.id == detection_id).first()
+
+    # Check if GeoTIFF exists directly on disk, or by run_id
+    tif_path = GEOTIFF_OUTPUT_DIR / f"{detection_id}.tif"
+    if not tif_path.exists() and det and det.run_id:
+        tif_path = GEOTIFF_OUTPUT_DIR / f"swath_{det.run_id}.tif"
+    if not tif_path.exists():
+        tif_path = GEOTIFF_OUTPUT_DIR / f"swath_{detection_id}.tif"
+
+    if not tif_path.exists():
+        if not det:
+            raise HTTPException(404, f"Detection or GeoTIFF '{detection_id}' not found")
+        # Generate on-demand if missing
+        from app.services.geospatial.geotiff_service import GeoTIFFService
+
+        svc = GeoTIFFService()
+        origin_lat = det.latitude or 18.921984
+        origin_lon = det.longitude or 72.834654
+        waterfall = np.random.randint(60, 200, (400, 800, 3), dtype=np.uint8)
+        res = svc.generate_swath_geotiff(
+            waterfall,
+            origin_lat=origin_lat,
+            origin_lon=origin_lon,
+            heading=45.0,
+            swath_width_m=100.0,
+            output_filename=f"{detection_id}.tif",
+        )
+        tif_path = Path(res["file_path"])
+
+    try:
+        with rasterio.open(tif_path) as src:
+            bounds = src.bounds
+            return {
+                "north": bounds.top,
+                "south": bounds.bottom,
+                "east": bounds.right,
+                "west": bounds.left,
+                "image_url": f"/api/export/geotiff/{detection_id}/render",
+            }
+    except Exception as e:
+        raise HTTPException(500, f"Failed to read GeoTIFF: {str(e)}")
+
+
+# ⭐ Render GeoTIFF as PNG Endpoint
+@router.get("/geotiff/{detection_id}/render")
+async def render_geotiff(
+    detection_id: str,
+) -> StreamingResponse:
+    """Render GeoTIFF as PNG for Leaflet overlay."""
+    from PIL import Image
+    import rasterio
+
+    tif_path = GEOTIFF_OUTPUT_DIR / f"{detection_id}.tif"
+    if not tif_path.exists():
+        tif_path = GEOTIFF_OUTPUT_DIR / f"swath_{detection_id}.tif"
+    if not tif_path.exists():
+        raise HTTPException(404, f"GeoTIFF {detection_id} not found")
+
+    try:
+        with rasterio.open(tif_path) as src:
+            img_data = src.read()
+            if img_data.shape[0] == 1:
+                mode = "L"
+                img_data = img_data[0]
+            else:
+                mode = "RGB"
+                img_data = np.transpose(img_data[:3], (1, 2, 0))
+
+            pil_img = Image.fromarray(img_data, mode=mode)
+            buf = io.BytesIO()
+            pil_img.save(buf, format="PNG")
+            return StreamingResponse(
+                iter([buf.getvalue()]),
+                media_type="image/png",
+            )
+    except Exception as e:
+        raise HTTPException(500, f"Failed to render GeoTIFF: {str(e)}")
+
+
 @router.get("/detection/{detection_id}")
 async def export_single_detection(
     detection_id: str,
     db: Session = Depends(get_db),
 ) -> dict:
     from app.models.orm import Detection
+
     det = db.query(Detection).filter(Detection.id == detection_id).first()
     if not det:
         raise HTTPException(404, f"Detection {detection_id} not found")
@@ -137,11 +252,10 @@ async def export_swath(
 ) -> dict:
     from app.models.orm import Run
     from app.services.geospatial.geotiff_service import GeoTIFFService
-    import numpy as np
 
     run = db.query(Run).filter(Run.id == run_id).first() if run_id else db.query(Run).first()
-    origin_lat = (run.latitude if run and run.latitude else 18.921984)
-    origin_lon = (run.longitude if run and run.longitude else 72.834654)
+    origin_lat = run.latitude if run and run.latitude else 18.921984
+    origin_lon = run.longitude if run and run.longitude else 72.834654
 
     svc = GeoTIFFService()
     # Generate swath mosaic
@@ -152,8 +266,6 @@ async def export_swath(
         origin_lon=origin_lon,
         heading=45.0,
         swath_width_m=100.0,
-        output_filename=f"swath_{run.id if run else 'active'}.tif"
+        output_filename=f"swath_{run.id if run else 'active'}.tif",
     )
     return res
-
-

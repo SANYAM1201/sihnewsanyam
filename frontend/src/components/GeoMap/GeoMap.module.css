@@ -174,3 +174,52 @@
   border-radius: 50%;
   border: 1.5px solid #ffffff;
 }
+
+/* ⭐ NEW: Swath Overlay Control Styles */
+.swathControl {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  background: rgba(18, 22, 20, 0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--gesso-radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.controlGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.controlLabel {
+  font-size: 11px;
+  color: #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.controlCheckbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+  cursor: pointer;
+}
+
+.opacitySlider {
+  width: 150px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+/* ImageOverlay z-index management */
+.map :global(.leaflet-image-layer) {
+  z-index: 10;
+}

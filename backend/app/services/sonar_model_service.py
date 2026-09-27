@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import io
+import logging
 from pathlib import Path
 
 from app.schemas.ml import BBox, Detection, ModelMetadata, PredictionResult, PreprocessedInput
 from app.services.model_service import ModelService
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_NAMES = {
     0: "shipwreck",
@@ -81,6 +84,11 @@ class SonarModelService(ModelService):
         self._model = None
         self._names: dict[int, str] = dict(_DEFAULT_NAMES)
         self._loaded = False
+        # ⭐ D-GRM feature extraction state
+        self._hook_features: dict = {}
+        self._backbone_hook = None
+        self._proj = None
+        self._dgrm_features = None
 
     def load(self) -> None:
         from ultralytics import YOLO
@@ -92,9 +100,54 @@ class SonarModelService(ModelService):
             self._names = {int(k): str(v) for k, v in names.items()}
         self._loaded = True
 
+        # ⭐ Register forward hook on backbone for D-GRM
+        self._register_backbone_hook()
+
     @property
     def is_loaded(self) -> bool:
         return self._loaded
+
+    # ⭐ Register forward hook on YOLOv8 backbone's final feature layer
+    def _register_backbone_hook(self) -> None:
+        """Register forward hook on YOLOv8 backbone's final feature layer for D-GRM."""
+        try:
+            if not hasattr(self._model, "model") or self._model.model is None:
+                return
+
+            model_layers = list(self._model.model.model)
+            hook_index = 9
+
+            # Try to find C2f layer dynamically
+            for i, layer in enumerate(model_layers):
+                layer_name = layer.__class__.__name__
+                if "C2f" in layer_name:
+                    hook_index = i
+
+            def _make_hook(name):
+                def hook(module, inp, output):
+                    self._hook_features[name] = output.detach()
+                return hook
+
+            # Register hook on the backbone's feature layer
+            if hook_index < len(model_layers):
+                self._backbone_hook = model_layers[hook_index].register_forward_hook(
+                    _make_hook("backbone_out")
+                )
+            else:
+                logger.warning(
+                    "Could not find valid backbone layer at index %d for D-GRM. "
+                    "Falling back to zero features.",
+                    hook_index,
+                )
+
+        except Exception as exc:
+            logger.warning("Failed to register backbone hook for D-GRM: %s. Falling back to zero features.", exc)
+
+    def cleanup(self) -> None:
+        """Clean up hooks to avoid memory leaks."""
+        if self._backbone_hook is not None:
+            self._backbone_hook.remove()
+            self._backbone_hook = None
 
     def _boxes_from_result(self, result, meta: dict | None = None) -> list[Detection]:
         detections: list[Detection] = []
@@ -188,7 +241,20 @@ class SonarModelService(ModelService):
         use_dgrm = os.environ.get("USE_DGRM", "false").lower() == "true"
         use_sadh = os.environ.get("USE_SADH", "false").lower() == "true"
 
+        # ⭐ NEW: Extract real features from backbone for D-GRM
         if use_dgrm and len(detections) > 1:
+            boxes = []
+            for det in detections:
+                if det.bbox:
+                    boxes.append([det.bbox.x, det.bbox.y, det.bbox.x + det.bbox.width, det.bbox.y + det.bbox.height])
+
+            backbone_feat = self._hook_features.get("backbone_out")
+            if backbone_feat is not None and len(boxes) > 0:
+                orig_shape = meta.get("orig_shape") if meta else None
+                img_w = orig_shape[1] if orig_shape and len(orig_shape) > 1 else 640
+                img_h = orig_shape[0] if orig_shape and len(orig_shape) > 0 else 640
+                self._dgrm_features = self._extract_roi_features(backbone_feat, boxes, img_w, img_h)
+
             detections = self._apply_dgrm(detections)
         if use_sadh and meta and ("altitude_m" in meta or "slant_range_m" in meta):
             detections = self._apply_sadh(detections, meta)
@@ -212,6 +278,43 @@ class SonarModelService(ModelService):
             detections=[],
         )
 
+    # ⭐ Extract RoI features from backbone feature map
+    def _extract_roi_features(self, backbone_feat_map, boxes_xyxy, img_w, img_h):
+        """Extract RoI features from backbone feature map.
+
+        Args:
+            backbone_feat_map: shape [1, C, H_feat, W_feat]
+            boxes_xyxy: list of [x1, y1, x2, y2] in pixel space
+            img_w: original image width
+            img_h: original image height
+
+        Returns:
+            Tensor[N, 256]
+        """
+        import torch
+        if len(boxes_xyxy) == 0:
+            return torch.zeros(0, 256)
+        feat = backbone_feat_map[0]
+        c, h_feat, w_feat = feat.shape
+        roi_vecs = []
+        for box in boxes_xyxy:
+            x1, y1, x2, y2 = box
+            fx1 = max(0, min(w_feat - 1, int((x1 / img_w) * w_feat)))
+            fy1 = max(0, min(h_feat - 1, int((y1 / img_h) * h_feat)))
+            fx2 = max(fx1 + 1, min(w_feat, int((x2 / img_w) * w_feat)))
+            fy2 = max(fy1 + 1, min(h_feat, int((y2 / img_h) * h_feat)))
+
+            roi_patch = feat[:, fy1:fy2, fx1:fx2]
+            roi_vec = roi_patch.mean(dim=[1, 2])
+
+            if c != 256:
+                if self._proj is None:
+                    self._proj = torch.nn.Linear(c, 256).to(feat.device)
+                roi_vec = self._proj(roi_vec)
+
+            roi_vecs.append(roi_vec)
+        return torch.stack(roi_vecs, dim=0)
+
     def _apply_dgrm(self, detections: list[Detection]) -> list[Detection]:
         """Apply Debris Graph Reasoning to correlate and refine detection confidence."""
         if len(detections) <= 1:
@@ -227,18 +330,23 @@ class SonarModelService(ModelService):
                 else:
                     boxes.append([0.0, 0.0, 10.0, 10.0])
             boxes_tensor = torch.tensor(boxes, dtype=torch.float32)
-            features_tensor = torch.randn(len(detections), 256)
+
+            # ⭐ Use real features from backbone instead of random
+            if hasattr(self, "_dgrm_features") and self._dgrm_features is not None and len(self._dgrm_features) == len(detections):
+                graph_features = self._dgrm_features
+            else:
+                graph_features = torch.zeros(len(detections), 256)
+
             dgrm = DebrisGraphReasoningModule(input_dim=256)
             with torch.no_grad():
-                _, adj = dgrm(features_tensor, boxes_tensor)
+                _, adj = dgrm(graph_features, boxes_tensor)
                 adj_np = adj.cpu().numpy()
                 for i in range(len(detections)):
                     connected = (adj_np[i] > 0.3).sum()
                     if connected > 1:
                         detections[i].confidence = min(1.0, round(detections[i].confidence * 1.05, 4))
         except Exception as exc:
-            import logging
-            logging.getLogger(__name__).debug("D-GRM post-processing skipped: %s", exc)
+            logger.debug("D-GRM post-processing skipped: %s", exc)
         return detections
 
     def _apply_sadh(self, detections: list[Detection], metadata: dict) -> list[Detection]:
