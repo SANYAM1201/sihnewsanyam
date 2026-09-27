@@ -1,0 +1,44 @@
+.errorBox {
+  padding: 24px;
+  background: var(--gesso-surface);
+  border: 1px solid var(--gesso-error);
+  border-radius: var(--gesso-radius-lg);
+  margin: 20px;
+  color: var(--gesso-fg);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.title {
+  color: var(--gesso-error);
+  font-family: var(--gesso-font-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.message {
+  font-size: 13px;
+  color: var(--gesso-fg-muted);
+  font-family: monospace;
+  background: var(--gesso-surface-recessed);
+  padding: 12px;
+  border-radius: var(--gesso-radius-sm);
+  overflow-x: auto;
+}
+
+.retryBtn {
+  align-self: flex-start;
+  padding: 8px 16px;
+  background: var(--gesso-fg);
+  color: var(--gesso-bg);
+  border: none;
+  border-radius: var(--gesso-radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.retryBtn:hover {
+  opacity: 0.9;
+}

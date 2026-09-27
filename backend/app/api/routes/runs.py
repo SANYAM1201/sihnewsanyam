@@ -48,6 +48,8 @@ def _detection_item(run, detection) -> DetectionItem:
         depth_m=detection.depth_m,
         area_m2=detection.area_m2,
         position_info=detection.position_info,
+        sadh_height_m=detection.sadh_height_m,
+        physics_confidence=detection.physics_confidence,
     )
     return with_detection_coordinates(
         item,
@@ -55,6 +57,7 @@ def _detection_item(run, detection) -> DetectionItem:
         run.longitude,
         run.resolution,
     )
+
 
 
 @router.get("/api/runs", response_model=RunListResponse)
@@ -159,6 +162,34 @@ def get_run_file(run_id: str, db: Session = Depends(get_db)) -> FileResponse:
     path = Path(run.file_path)
     if not path.is_file():
         raise RunNotFoundError()
+
+    # If it is a Triton XTF file, serve the rendered PNG waterfall preview
+    # so standard web browsers and <img> tags render the sonogram immediately
+    if path.suffix.lower() == ".xtf":
+        waterfall_path = path.with_name(f"{path.stem}_waterfall.png")
+        if waterfall_path.is_file():
+            return FileResponse(
+                waterfall_path,
+                filename=f"{path.stem}_waterfall.png",
+                media_type="image/png",
+                content_disposition_type="inline",
+            )
+        try:
+            import cv2
+            from app.services.xtf_parser import parse_xtf_bytes
+            waterfall_np, _ = parse_xtf_bytes(path.read_bytes())
+            success, png_bytes = cv2.imencode(".png", waterfall_np)
+            if success:
+                waterfall_path.write_bytes(png_bytes.tobytes())
+                return FileResponse(
+                    waterfall_path,
+                    filename=f"{path.stem}_waterfall.png",
+                    media_type="image/png",
+                    content_disposition_type="inline",
+                )
+        except Exception:
+            pass
+
     media = {
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
@@ -172,6 +203,47 @@ def get_run_file(run_id: str, db: Session = Depends(get_db)) -> FileResponse:
         media_type=media,
         content_disposition_type="inline",
     )
+
+
+@router.get("/api/waterfall/{run_id}")
+def get_waterfall(run_id: str, db: Session = Depends(get_db)) -> FileResponse:
+    return get_run_file(run_id, db)
+
+
+@router.get("/api/detections")
+def get_all_detections(
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    det_repo = DetectionRepository(db)
+    detections = det_repo.list_all(limit=limit)
+    return [
+        {
+            "id": d.id,
+            "detection_id": d.id,
+            "run_id": d.run_id,
+            "class_label": d.class_label,
+            "confidence": d.confidence,
+            "risk_level": d.risk_level,
+            "bbox": {
+                "x": d.bbox_x,
+                "y": d.bbox_y,
+                "width": d.bbox_width,
+                "height": d.bbox_height,
+            }
+            if d.bbox_x is not None
+            else None,
+            "depth_m": d.depth_m,
+            "area_m2": d.area_m2,
+            "latitude": d.latitude,
+            "longitude": d.longitude,
+            "sadh_height_m": d.sadh_height_m,
+            "physics_confidence": d.physics_confidence,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        }
+        for d in detections
+    ]
+
 
 
 @router.get("/api/map/points")

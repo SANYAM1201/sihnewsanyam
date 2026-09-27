@@ -37,3 +37,12 @@ class DetectionRepository:
 
     def count_by_run(self, run_id: str) -> int:
         return self._db.query(Detection).filter(Detection.run_id == run_id).count()
+
+    def list_all(self, limit: int = 200) -> list[Detection]:
+        return (
+            self._db.query(Detection)
+            .order_by(Detection.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+

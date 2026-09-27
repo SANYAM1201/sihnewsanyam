@@ -62,8 +62,9 @@ class SonarPreprocessor(Preprocessor):
 
         try:
             # Step 1: Decode raw image bytes into RGB NumPy array
-            image = Image.open(io.BytesIO(raw_image_bytes)).convert("RGB")
-            image_np = np.array(image)
+            from app.services.safe_image_loader import safe_load_image
+
+            image_np = safe_load_image(raw_image_bytes)
 
             # Step 2: SSS-specific corrections (BAC, 2D-FFT stripe filter, homomorphic)
             if self.apply_sss_processing:

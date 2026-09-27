@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import styles from './UploadPanel.module.css'
 
-const ACCEPT = '.tif,.tiff,.png,.jpg,.jpeg,.geotiff,image/tiff,image/png,image/jpeg'
+const ACCEPT = '.tif,.tiff,.png,.jpg,.jpeg,.geotiff,.xtf,image/tiff,image/png,image/jpeg,application/octet-stream,application/x-xtf'
 
 export default function UploadPanel({ file, previewUrl, onFile }) {
   const inputRef = useRef(null)
@@ -16,11 +16,13 @@ export default function UploadPanel({ file, previewUrl, onFile }) {
     takeFile(event.dataTransfer.files?.[0])
   }
 
+  const isXtf = file?.name?.toLowerCase().endsWith('.xtf')
+
   return (
     <section className={styles.panel}>
       <div>
         <div className={styles.panelTitle}>SONAR IMAGE UPLOAD SECTION</div>
-        <div className={styles.panelSub}>.tiff · .geotiff · .png · .jpg — up to 500MB</div>
+        <div className={styles.panelSub}>.tiff · .geotiff · .png · .jpg · .xtf — up to 500MB</div>
       </div>
       <label
         className={styles.dropzone}
@@ -28,7 +30,15 @@ export default function UploadPanel({ file, previewUrl, onFile }) {
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
       >
-        {previewUrl ? (
+        {isXtf ? (
+          <div className={styles.xtfCard}>
+            <span className={styles.xtfBadge}>XTF</span>
+            <div className={styles.xtfDetails}>
+              <strong className={styles.xtfTitle}>{file.name}</strong>
+              <span className={styles.xtfSub}>Triton Side-Scan Sonar Telemetry & Waterfall Stream</span>
+            </div>
+          </div>
+        ) : previewUrl ? (
           <div className={styles.thumbWrap}>
             <img src={previewUrl} alt={file?.name || 'Uploaded sonar image preview'} />
           </div>
@@ -50,6 +60,7 @@ export default function UploadPanel({ file, previewUrl, onFile }) {
           <span className={styles.chip}>GEOTIFF</span>
           <span className={styles.chip}>PNG</span>
           <span className={styles.chip}>JPG</span>
+          <span className={styles.chip}>XTF</span>
         </div>
         <div className={styles.fileActions}>
           <button

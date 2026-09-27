@@ -1,8 +1,14 @@
 import os
+import sys
 import tempfile
+
+os.environ["ULTRALYTICS_AUTOINSTALL"] = "0"
+os.environ["YOLO_OFFLINE"] = "1"
+os.environ["WATCHDOG_DISABLE"] = "1"
 
 import pytest
 from fastapi.testclient import TestClient
+
 
 
 @pytest.fixture(autouse=True)

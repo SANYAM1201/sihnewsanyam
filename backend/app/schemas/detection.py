@@ -79,6 +79,7 @@ class DetectResponse(BaseModel):
     detections: list[DetectionItem] = []
     model: ModelInfo | None = None
     timestamps: Timestamps | None = None
+    waterfall_url: str | None = None
 
 
 class ModelInfo(BaseModel):

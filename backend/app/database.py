@@ -32,11 +32,16 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
 
 
-def get_db() -> Generator[Session, None, None]:
+def get_session() -> Session:
     if SessionLocal is None:
         init_db()
-    db = SessionLocal()
+    return SessionLocal()
+
+
+def get_db() -> Generator[Session, None, None]:
+    db = get_session()
     try:
         yield db
     finally:
         db.close()
+

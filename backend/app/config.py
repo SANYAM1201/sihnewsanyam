@@ -44,8 +44,10 @@ class Settings(BaseSettings):
         "Side-Scan",
         "Multibeam",
         "Synthetic Aperture",
+        "SSS-Dual",
     ]
-    allowed_resolutions: list[str] = ["0.1 m/px", "0.5 m/px", "1 m/px"]
+    allowed_resolutions: list[str] = ["0.1 m/px", "0.5 m/px", "1 m/px", "1024x768", "0.05 m/px"]
+
     default_confidence_threshold: int = 20
     default_min_object_size: int = 10
 

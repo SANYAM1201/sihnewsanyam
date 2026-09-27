@@ -143,3 +143,50 @@
   background: var(--gesso-surface-elevated);
   color: var(--gesso-fg);
 }
+
+.xtfCard {
+  width: 100%;
+  max-width: 380px;
+  padding: 16px;
+  border-radius: var(--gesso-radius-md);
+  background: var(--gesso-surface-elevated);
+  border: 1px solid var(--gesso-divider);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+
+.xtfBadge {
+  background: #0284c7;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: var(--gesso-radius-sm);
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.xtfDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.xtfTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gesso-fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xtfSub {
+  font-size: 11px;
+  color: var(--gesso-fg-muted);
+}
+

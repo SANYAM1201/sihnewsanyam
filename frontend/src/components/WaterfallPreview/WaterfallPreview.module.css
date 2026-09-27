@@ -1,0 +1,79 @@
+.container {
+  margin-top: 16px;
+  background: var(--gesso-surface);
+  border: 1px solid var(--gesso-divider);
+  border-radius: var(--gesso-radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-family: var(--gesso-font-display);
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: var(--gesso-radius-full);
+  background: rgba(2, 132, 199, 0.15);
+  color: #0284c7;
+  border: 1px solid rgba(2, 132, 199, 0.3);
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--gesso-fg-muted);
+}
+
+.waterfallWrap {
+  position: relative;
+  width: 100%;
+  max-height: 480px;
+  overflow: auto;
+  border-radius: var(--gesso-radius-md);
+  border: 1px solid var(--gesso-divider);
+  background: #000000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.waterfallImg {
+  width: 100%;
+  height: auto;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.nadirLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--gesso-fg-muted);
+  font-family: monospace;
+}

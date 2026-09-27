@@ -1,3 +1,8 @@
+import os
+
+os.environ.setdefault("ULTRALYTICS_AUTOINSTALL", "0")
+os.environ.setdefault("YOLO_OFFLINE", "1")
+
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -13,6 +18,11 @@ from app.services.inference_service import InferenceService
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    from app.services.startup_validator import validate_environment, validate_config
+
+    validate_environment()
+    validate_config()
+
     init_db()
 
     settings = get_settings()
@@ -34,6 +44,14 @@ def create_app() -> FastAPI:
 
     register_exception_handler(application)
 
+    from app.middleware.error_handler import GlobalErrorHandlerMiddleware
+    from app.middleware.rate_limit import RateLimiterMiddleware
+    from app.middleware.request_id import RequestIdMiddleware
+
+    application.add_middleware(RequestIdMiddleware)
+    application.add_middleware(GlobalErrorHandlerMiddleware)
+    application.add_middleware(RateLimiterMiddleware, max_requests=200, window_seconds=60)
+
     application.add_middleware(
         CORSMiddleware,
         allow_origin_regex=r"https?://.*",
@@ -48,11 +66,19 @@ def create_app() -> FastAPI:
     from app.api.routes.reports import router as reports_router
     from app.api.routes.predict import router as predict_router
     from app.api.routes.anomalies import router as anomalies_router
+    from app.api.routes.waterfall import router as waterfall_router
     from app.monitoring.metrics import (
         REQUEST_COUNT,
         REQUEST_LATENCY,
         router as metrics_router,
     )
+
+    from app.api.routes.models import router as models_router
+    from app.api.routes.ab import router as ab_router
+    from app.api.routes.export import router as export_router
+    from app.services.model_watcher import watcher as model_watcher
+
+    from app.api.routes.v1 import router as v1_router
 
     application.include_router(health_router)
     application.include_router(detect_router)
@@ -60,7 +86,18 @@ def create_app() -> FastAPI:
     application.include_router(reports_router)
     application.include_router(predict_router)
     application.include_router(anomalies_router)
+    application.include_router(waterfall_router)
     application.include_router(metrics_router)
+    application.include_router(models_router)
+    application.include_router(ab_router)
+    application.include_router(export_router)
+    application.include_router(v1_router)
+
+    try:
+        model_watcher.start()
+    except Exception:
+        pass
+
 
     @application.middleware("http")
     async def metrics_middleware(request, call_next):

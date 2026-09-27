@@ -1,0 +1,126 @@
+.container {
+  background: var(--gesso-surface);
+  border: 1px solid var(--gesso-divider);
+  border-radius: var(--gesso-radius-lg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.titleArea {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.title {
+  font-family: var(--gesso-font-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.liveBadge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: var(--gesso-radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.liveOnline {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.liveOffline {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.canvasWrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  max-height: 460px;
+  background: #000000;
+  border: 1px solid var(--gesso-divider);
+  border-radius: var(--gesso-radius-md);
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.emptyOverlay {
+  position: absolute;
+  color: var(--gesso-fg-muted);
+  font-size: 13px;
+  pointer-events: none;
+  text-align: center;
+  padding: 16px;
+}
+
+.telemetryBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--gesso-fg-muted);
+  font-family: monospace;
+  padding-top: 4px;
+  border-top: 1px solid var(--gesso-divider);
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+}
+
+.btnAction {
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: var(--gesso-radius-sm);
+  background: var(--gesso-surface-recessed);
+  border: 1px solid var(--gesso-divider);
+  color: var(--gesso-fg);
+  cursor: pointer;
+}
+
+.btnAction:hover {
+  background: var(--gesso-surface-elevated);
+}

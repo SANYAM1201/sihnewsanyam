@@ -69,17 +69,18 @@ def _has_valid_signature(data: bytes, content_type: str) -> bool:
 async def detect(
     request: Request,
     file: UploadFile | None = File(default=None),
-    latitude: float = Form(...),
-    longitude: float = Form(...),
-    sonar_type: str = Form(...),
-    resolution: str = Form(...),
-    depth_min: float = Form(...),
-    depth_max: float = Form(...),
+    latitude: float = Form(default=12.9716),
+    longitude: float = Form(default=80.2520),
+    sonar_type: str = Form(default="Side-Scan"),
+    resolution: str = Form(default="0.1 m/px"),
+    depth_min: float = Form(default=10.0),
+    depth_max: float = Form(default=50.0),
     confidence_threshold: int = Form(default=50),
     selected_classes: str = Form(default=""),
     min_object_size: int = Form(default=10),
     db: Session = Depends(get_db),
 ) -> DetectResponse:
+
     inference_service: InferenceService = request.app.state.inference_service
     settings: Settings = get_settings()
     started_at = datetime.now(timezone.utc)
@@ -156,11 +157,15 @@ async def detect(
             if not success:
                 raise InvalidFileTypeError("Failed to render waterfall sonogram from XTF")
             inference_payload = png_bytes.tobytes()
+            # Cache rendered waterfall png alongside the upload for instant browser viewing
+            waterfall_path = stored_path.with_name(f"{stored_path.stem}_waterfall.png")
+            waterfall_path.write_bytes(inference_payload)
             if xtf_meta.get("avg_latitude"):
                 latitude = xtf_meta["avg_latitude"]
             if xtf_meta.get("avg_longitude"):
                 longitude = xtf_meta["avg_longitude"]
             xtf_heading = xtf_meta.get("avg_heading_deg", 0.0)
+
         except Exception as e:
             logger.warning("XTF parsing failed: %s", e)
             run_repo.update(run.id, status="failed", error_message="XTF parsing failed")
@@ -294,7 +299,9 @@ async def detect(
             completed_at=completed_at.isoformat(),
             duration_seconds=round(duration, 3),
         ),
+        waterfall_url=f"/api/waterfall/{run.id}" if is_xtf else f"/api/runs/{run.id}/file",
     )
+
 
 
 _CLASS_GROUPS = {

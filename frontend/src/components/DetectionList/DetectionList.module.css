@@ -200,8 +200,59 @@
   text-align: right;
 }
 
+.detectRow__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.sadhBadge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gesso-fg);
+  background: var(--gesso-surface-recessed);
+  border: 1px solid var(--gesso-divider);
+  padding: 2px 8px;
+  border-radius: var(--gesso-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.physicsPill {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: var(--gesso-radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.physicsPillHigh {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.physicsPillMedium {
+  background: rgba(234, 179, 8, 0.15);
+  color: #ca8a04;
+  border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+.physicsPillLow {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
 @media (max-width: 640px) {
   .detectRow {
     flex-wrap: wrap;
   }
 }
+

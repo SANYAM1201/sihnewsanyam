@@ -7,10 +7,19 @@ const riskStyles = {
   low: styles.riskPillLow,
 }
 
+function getPhysicsStyle(confidence) {
+  if (confidence == null) return styles.physicsPillLow
+  if (confidence >= 0.75) return styles.physicsPillHigh
+  if (confidence >= 0.5) return styles.physicsPillMedium
+  return styles.physicsPillLow
+}
+
 function metaLine(d) {
   const parts = []
   if (d.depth_m != null) parts.push(`Depth ${d.depth_m} m`)
   if (d.area_m2 != null) parts.push(`${d.area_m2} m²`)
+  if (d.sadh_height_m != null) parts.push(`Height ${d.sadh_height_m.toFixed(2)} m`)
+  if (d.physics_confidence != null) parts.push(`Physics ${(d.physics_confidence * 100).toFixed(1)}%`)
   if (d.bbox) parts.push(`box ${Math.round(d.bbox.x)},${Math.round(d.bbox.y)}`)
   return parts.join(' · ') || 'No extra metadata'
 }
@@ -75,6 +84,24 @@ export default function DetectionList({
               <div className={styles.detectRow__text}>
                 <span className={styles.detectRow__title}>{d.class_label} — {d.detection_id.slice(0, 8)}</span>
                 <span className={styles.detectRow__meta}>{metaLine(d)}</span>
+                <div className={styles.detectRow__badges}>
+                  {d.sadh_height_m != null && (
+                    <span
+                      className={styles.sadhBadge}
+                      title="Shadow Acoustic Height (SADH): Estimated target height from acoustic shadow geometry"
+                    >
+                      📐 Height: {d.sadh_height_m.toFixed(2)} m
+                    </span>
+                  )}
+                  {d.physics_confidence != null && (
+                    <span
+                      className={`${styles.physicsPill} ${getPhysicsStyle(d.physics_confidence)}`}
+                      title="Physics Confidence: Multi-modal fusion of acoustic shadow length and sonar backscatter"
+                    >
+                      ⚡ Physics {(d.physics_confidence * 100).toFixed(1)}%
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className={styles.detectRow__right}>
@@ -89,3 +116,4 @@ export default function DetectionList({
     </section>
   )
 }
+

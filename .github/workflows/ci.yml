@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          pytest backend/tests/ \
+            -p no:randomly \
+            --numprocesses=0 \
+            --tb=short \
+            -q
+
+  docker-smoke:
+    needs: backend-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t sonar-sentry:ci .
+      - name: Smoke test
+        run: |
+          docker run -d -p 8000:8000 --name sentry sonar-sentry:ci
+          sleep 10
+          curl -f http://localhost:8000/api/health || (docker logs sentry && exit 1)
+          docker stop sentry

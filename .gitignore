@@ -23,3 +23,6 @@ datasets/*_prep/
 *.onnx
 
 *.cache
+.coverage
+.coverage.*
+htmlcov/
