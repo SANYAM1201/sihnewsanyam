@@ -60,6 +60,53 @@ class ExportService:
     def to_json(self, run_id: Optional[str] = None, limit: int = 1000, offset: int = 0) -> str:
         return json.dumps([self.to_dict(d) for d in self._query(run_id, limit, offset)], indent=2, default=str)
 
+    def to_geojson(self, run_id: Optional[str] = None, limit: int = 1000, offset: int = 0) -> dict[str, Any]:
+        from app.services.pdf_report_service import NavalPDFReportService
+
+        svc = NavalPDFReportService()
+        dets = [
+            {
+                "id": d.id,
+                "label": d.class_label,
+                "confidence": d.confidence,
+                "latitude": d.latitude,
+                "longitude": d.longitude,
+                "height_m": d.sadh_height_m,
+                "shadow_length_m": (d.bbox_height or 0.0) * 0.1,
+                "physics_verified": (d.physics_confidence or 1.0) >= 0.6,
+            }
+            for d in self._query(run_id, limit, offset)
+        ]
+        return svc.export_detections_geojson(dets)
+
+    def generate_dossier_pdf(self, run_id: Optional[str] = None) -> str:
+        from app.services.pdf_report_service import NavalPDFReportService
+
+        svc = NavalPDFReportService()
+        run = self.db.query(Run).filter(Run.id == run_id).first() if run_id else None
+        mission_info = {
+            "mission_id": run.mission_id if run else "MSN-GLOBAL",
+            "vessel": "INS Sandhayak (J18)",
+            "area": "Indian Ocean Operations",
+            "swath_width_m": 100.0,
+            "altitude_m": 12.0,
+        }
+        dets = [
+            {
+                "id": d.id[:8],
+                "label": d.class_label,
+                "confidence": d.confidence,
+                "latitude": d.latitude,
+                "longitude": d.longitude,
+                "height_m": d.sadh_height_m or 1.2,
+                "shadow_length_m": (d.bbox_height or 20.0) * 0.1,
+                "physics_verified": (d.physics_confidence or 1.0) >= 0.6,
+            }
+            for d in self._query(run_id)
+        ]
+        pdf_path = svc.generate_salvage_dossier(mission_info, dets)
+        return str(pdf_path)
+
     def run_report(self, run_id: str) -> dict[str, Any]:
         run = self.db.query(Run).filter(Run.id == run_id).first()
         if not run:
@@ -81,3 +128,4 @@ class ExportService:
             },
             "detections": [self.to_dict(d) for d in dets],
         }
+

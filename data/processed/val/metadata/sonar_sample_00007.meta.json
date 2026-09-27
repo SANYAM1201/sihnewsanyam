@@ -1,0 +1,53 @@
+{
+  "image_file": "sonar_sample_00007.jpg",
+  "width": 640,
+  "height": 640,
+  "altitude_m": 16.77,
+  "targets": [
+    {
+      "class_id": 1,
+      "class_name": "sunken_debris",
+      "bbox_xywh": [
+        0.6875,
+        0.6719,
+        0.0688,
+        0.0375
+      ],
+      "height_m": 0.63,
+      "shadow_len_px": 10,
+      "slant_range_m": 15.31,
+      "altitude_m": 16.77,
+      "is_geology": false
+    },
+    {
+      "class_id": 0,
+      "class_name": "ghost_net",
+      "bbox_xywh": [
+        0.2867,
+        0.3312,
+        0.0609,
+        0.0688
+      ],
+      "height_m": 1.73,
+      "shadow_len_px": 16,
+      "slant_range_m": 24.38,
+      "altitude_m": 16.77,
+      "is_geology": false
+    },
+    {
+      "class_id": 5,
+      "class_name": "metal_drum",
+      "bbox_xywh": [
+        0.1555,
+        0.5977,
+        0.0516,
+        0.0734
+      ],
+      "height_m": 1.6,
+      "shadow_len_px": 22,
+      "slant_range_m": 37.03,
+      "altitude_m": 16.77,
+      "is_geology": false
+    }
+  ]
+}

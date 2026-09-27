@@ -54,8 +54,8 @@ def validate_environment() -> None:
         import torch
 
         logger.info(f"{'✅' if torch.cuda.is_available() else '⚠️ '} CUDA available: {torch.cuda.is_available()}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("PyTorch check skipped or hardware acceleration check failed: %s", exc)
 
     if errors:
         for e in errors:

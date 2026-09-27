@@ -1,0 +1,23 @@
+{
+  "image_file": "sonar_sample_00004.jpg",
+  "width": 640,
+  "height": 640,
+  "altitude_m": 10.14,
+  "targets": [
+    {
+      "class_id": 4,
+      "class_name": "seafloor_rock",
+      "bbox_xywh": [
+        0.8508,
+        0.7133,
+        0.0609,
+        0.0578
+      ],
+      "height_m": 0.66,
+      "shadow_len_px": 13,
+      "slant_range_m": 32.03,
+      "altitude_m": 10.14,
+      "is_geology": true
+    }
+  ]
+}

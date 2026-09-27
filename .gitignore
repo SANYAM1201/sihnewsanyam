@@ -26,3 +26,7 @@ datasets/*_prep/
 .coverage
 .coverage.*
 htmlcov/
+*.tar.gz
+backend/export/
+exports/
+

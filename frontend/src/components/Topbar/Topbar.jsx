@@ -3,9 +3,15 @@ import styles from './Topbar.module.css'
 
 const NAV_ITEMS = [
   { key: 'launch', label: 'Launch', to: '/' },
-  { key: 'uploads', label: 'My Uploads', to: '/uploads' },
-  { key: 'reports', label: 'Reports', to: '/reports' },
+  { key: 'dashboard', label: 'Dashboard', to: '/dashboard' },
+  { key: 'live-survey', label: 'Live Survey', to: '/live-survey' },
   { key: 'map', label: 'Map', to: '/map' },
+  { key: 'anomalies', label: 'Anomalies', to: '/anomalies' },
+  { key: 'reports', label: 'Reports', to: '/reports' },
+  { key: 'uploads', label: 'Uploads', to: '/uploads' },
+  { key: 'health', label: 'Health', to: '/health' },
+  { key: 'settings', label: 'Settings', to: '/settings' },
+  { key: 'api-docs', label: 'API Docs', to: '/api-docs' },
 ]
 
 export default function Topbar({ activePage = 'launch' }) {
@@ -15,33 +21,29 @@ export default function Topbar({ activePage = 'launch' }) {
         <div className={styles.topbar__mark}>S</div>
         <div className={styles.topbar__text}>
           <span className={styles.topbar__label}>MoES · NIOT</span>
-          <span className={styles.topbar__name}>SONARIS</span>
+          <span className={styles.topbar__name}>SONAR SENTRY</span>
         </div>
       </div>
+
       <nav className={styles.topbar__nav}>
-        {NAV_ITEMS.map((item) =>
-          item.to ? (
-            <Link
-              key={item.key}
-              to={item.to}
-              className={styles.topbar__navitem}
-              aria-current={activePage === item.key ? 'page' : undefined}
-            >
-              {item.label}
-            </Link>
-          ) : (
-            <button
-              key={item.key}
-              className={styles.topbar__navitem}
-              aria-current={activePage === item.key ? 'page' : undefined}
-            >
-              {item.label}
-            </button>
-          )
-        )}
+        {NAV_ITEMS.map((item) => (
+          <Link
+            key={item.key}
+            to={item.to}
+            className={styles.topbar__navitem}
+            aria-current={activePage === item.key ? 'page' : undefined}
+          >
+            {item.label}
+          </Link>
+        ))}
       </nav>
+
       <div className={styles.topbar__actions}>
-        <div className={styles.avatar}>RS</div>
+        <div className={styles.statusPill}>
+          <span className={styles.statusDot} />
+          <span>PORT 8000</span>
+        </div>
+        <div className={styles.avatar}>NIOT</div>
       </div>
     </header>
   )

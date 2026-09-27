@@ -1,0 +1,68 @@
+{
+  "image_file": "sonar_sample_00001.jpg",
+  "width": 640,
+  "height": 640,
+  "altitude_m": 16.71,
+  "targets": [
+    {
+      "class_id": 1,
+      "class_name": "sunken_debris",
+      "bbox_xywh": [
+        0.1953,
+        0.8953,
+        0.0719,
+        0.0625
+      ],
+      "height_m": 1.41,
+      "shadow_len_px": 18,
+      "slant_range_m": 34.06,
+      "altitude_m": 16.71,
+      "is_geology": false
+    },
+    {
+      "class_id": 4,
+      "class_name": "seafloor_rock",
+      "bbox_xywh": [
+        0.6469,
+        0.4813,
+        0.05,
+        0.0312
+      ],
+      "height_m": 0.52,
+      "shadow_len_px": 10,
+      "slant_range_m": 12.19,
+      "altitude_m": 16.71,
+      "is_geology": true
+    },
+    {
+      "class_id": 0,
+      "class_name": "ghost_net",
+      "bbox_xywh": [
+        0.3281,
+        0.5938,
+        0.0688,
+        0.075
+      ],
+      "height_m": 2.16,
+      "shadow_len_px": 17,
+      "slant_range_m": 20.62,
+      "altitude_m": 16.71,
+      "is_geology": false
+    },
+    {
+      "class_id": 0,
+      "class_name": "ghost_net",
+      "bbox_xywh": [
+        0.1227,
+        0.0813,
+        0.0422,
+        0.0563
+      ],
+      "height_m": 1.55,
+      "shadow_len_px": 23,
+      "slant_range_m": 39.84,
+      "altitude_m": 16.71,
+      "is_geology": false
+    }
+  ]
+}

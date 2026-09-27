@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import logging
 import math
-
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.api.exceptions import ReportNotFoundError, RunNotFoundError
 from app.database import get_db
@@ -187,8 +189,8 @@ def get_run_file(run_id: str, db: Session = Depends(get_db)) -> FileResponse:
                     media_type="image/png",
                     content_disposition_type="inline",
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed serving waterfall annotated file: %s", exc)
 
     media = {
         ".jpg": "image/jpeg",

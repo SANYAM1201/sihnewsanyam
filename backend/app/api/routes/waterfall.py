@@ -54,6 +54,7 @@ manager = ConnectionManager()
 
 
 @router.websocket("/ws/waterfall")
+@router.websocket("/api/waterfall")
 async def websocket_waterfall(websocket: WebSocket) -> None:
     """Live vessel acoustic streaming endpoint.
 

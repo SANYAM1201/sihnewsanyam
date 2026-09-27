@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet'
+import { CircleMarker, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import styles from './GeoMap.module.css'
@@ -77,6 +77,8 @@ export default function GeoMap({
   onSelect,
   onOpenResults,
   basemap = 'satellite',
+  swathPolygon = null,
+  vesselTrack = null,
 }) {
   const tile = basemap === 'streets' ? STREETS : SATELLITE
   const selected = points.find((p) => p.id === selectedId)
@@ -93,7 +95,30 @@ export default function GeoMap({
         <TileLayer key={basemap} attribution={tile.attribution} url={tile.url} />
         <FitOrFocus points={points} selectedPoint={selected} />
         {selected ? <FlyTo lat={selected.lat} lng={selected.lng} zoom={16} /> : null}
-        
+
+        {swathPolygon && swathPolygon.length > 0 && (
+          <Polygon
+            positions={swathPolygon}
+            pathOptions={{
+              color: '#0284c7',
+              weight: 2,
+              fillColor: '#0284c7',
+              fillOpacity: 0.18,
+              dashArray: '5, 5',
+            }}
+          />
+        )}
+        {vesselTrack && vesselTrack.length > 1 && (
+          <Polyline
+            positions={vesselTrack}
+            pathOptions={{
+              color: '#38bdf8',
+              weight: 3,
+              opacity: 0.85,
+            }}
+          />
+        )}
+
         {points.map((point) => {
           const active = point.id === selectedId
           const color = getMarkerColor(point)

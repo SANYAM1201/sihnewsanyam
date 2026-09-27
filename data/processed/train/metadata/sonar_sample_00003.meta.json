@@ -1,0 +1,68 @@
+{
+  "image_file": "sonar_sample_00003.jpg",
+  "width": 640,
+  "height": 640,
+  "altitude_m": 15.35,
+  "targets": [
+    {
+      "class_id": 3,
+      "class_name": "pipeline",
+      "bbox_xywh": [
+        0.3031,
+        0.2141,
+        0.0781,
+        0.0406
+      ],
+      "height_m": 1.37,
+      "shadow_len_px": 13,
+      "slant_range_m": 23.59,
+      "altitude_m": 15.35,
+      "is_geology": false
+    },
+    {
+      "class_id": 4,
+      "class_name": "seafloor_rock",
+      "bbox_xywh": [
+        0.8859,
+        0.5125,
+        0.0938,
+        0.0625
+      ],
+      "height_m": 0.77,
+      "shadow_len_px": 10,
+      "slant_range_m": 33.91,
+      "altitude_m": 15.35,
+      "is_geology": true
+    },
+    {
+      "class_id": 2,
+      "class_name": "shipwreck",
+      "bbox_xywh": [
+        0.2437,
+        0.1562,
+        0.0437,
+        0.0312
+      ],
+      "height_m": 0.58,
+      "shadow_len_px": 10,
+      "slant_range_m": 27.81,
+      "altitude_m": 15.35,
+      "is_geology": false
+    },
+    {
+      "class_id": 2,
+      "class_name": "shipwreck",
+      "bbox_xywh": [
+        0.2414,
+        0.1117,
+        0.0422,
+        0.0453
+      ],
+      "height_m": 1.09,
+      "shadow_len_px": 12,
+      "slant_range_m": 27.97,
+      "altitude_m": 15.35,
+      "is_geology": false
+    }
+  ]
+}

@@ -95,8 +95,8 @@ def create_app() -> FastAPI:
 
     try:
         model_watcher.start()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Could not start model watcher: %s", exc)
 
 
     @application.middleware("http")

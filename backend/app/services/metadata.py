@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import zlib
 from typing import Any
 
 from PIL import Image, PngImagePlugin
+
+logger = logging.getLogger(__name__)
 
 
 def embed_sonar_metadata(image_bytes: bytes, metadata: dict[str, Any]) -> bytes:
@@ -32,6 +35,6 @@ def extract_sonar_metadata(image_bytes: bytes) -> dict[str, Any] | None:
             compressed = bytes.fromhex(raw_hex)
             decompressed = zlib.decompress(compressed).decode("utf-8")
             return json.loads(decompressed)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed extracting embedded sonar telemetry: %s", exc)
     return None

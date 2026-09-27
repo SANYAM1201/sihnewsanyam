@@ -2,67 +2,75 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px clamp(20px, 5vw, 64px);
+  padding: 12px clamp(16px, 3vw, 36px);
   border-bottom: 1px solid var(--gesso-divider);
   background: var(--gesso-canvas);
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  backdrop-filter: blur(10px);
 }
 
 .topbar__brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .topbar__mark {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--gesso-radius-sm);
-  background: var(--gesso-fg);
-  color: var(--gesso-canvas);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--gesso-radius-sm, 6px);
+  background: var(--gesso-primary, #2e3700);
+  color: var(--gesso-canvas, #ffffff);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--gesso-font-display);
   font-weight: 800;
-  font-size: 18px;
+  font-size: 16px;
   letter-spacing: -0.02em;
 }
 
 .topbar__text {
   display: flex;
   flex-direction: column;
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .topbar__label {
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--gesso-fg-muted);
 }
 
 .topbar__name {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .topbar__nav {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .topbar__navitem {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--gesso-fg-muted);
-  padding: 8px 16px;
-  border-radius: var(--gesso-radius-md);
+  padding: 6px 12px;
+  border-radius: var(--gesso-radius-md, 6px);
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background var(--gesso-duration-fast) var(--gesso-easing-default),
-    color var(--gesso-duration-fast) var(--gesso-easing-default);
+  text-decoration: none;
+  transition: all var(--gesso-duration-fast, 0.15s) ease;
 }
 
 .topbar__navitem:hover {
@@ -73,35 +81,62 @@
 .topbar__navitem[aria-current="page"] {
   color: var(--gesso-fg);
   background: var(--gesso-surface);
+  font-weight: 600;
+  border-bottom: 2px solid var(--gesso-primary, #2e3700);
 }
 
 .topbar__actions {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  background: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.2);
+  color: #166534;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--gesso-font-mono, monospace);
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #16a34a;
+  box-shadow: 0 0 6px #16a34a;
 }
 
 .avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--gesso-radius-full);
+  width: 30px;
+  height: 30px;
+  border-radius: var(--gesso-radius-full, 50%);
   background: var(--gesso-surface);
   color: var(--gesso-fg);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--gesso-divider);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .topbar {
-    flex-wrap: wrap;
-    gap: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
   }
   .topbar__nav {
-    order: 3;
-    width: 100%;
     justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 4px;
   }
 }

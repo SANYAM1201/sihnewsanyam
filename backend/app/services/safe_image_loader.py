@@ -110,7 +110,7 @@ def safe_load_image(
     if target_size is not None:
         try:
             img_array = cv2.resize(img_array, target_size, interpolation=cv2.INTER_LINEAR)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Optional resize failed for target_size %s: %s", target_size, exc)
 
     return img_array.astype(np.uint8)

@@ -36,6 +36,10 @@ CREATE TABLE IF NOT EXISTS public.detections (
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
     depth_m DOUBLE PRECISION,
+    sadh_height_m DOUBLE PRECISION,
+    shadow_length_m DOUBLE PRECISION,
+    physics_confidence DOUBLE PRECISION,
+    geom GEOMETRY(Point, 4326),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -58,6 +62,9 @@ CREATE TABLE IF NOT EXISTS public.reports (
 -- 5. Spatial & Performance Indices
 CREATE INDEX IF NOT EXISTS idx_runs_geom ON public.runs USING GIST (geom);
 CREATE INDEX IF NOT EXISTS idx_detections_run_id ON public.detections (run_id);
+CREATE INDEX IF NOT EXISTS idx_detections_geom ON public.detections USING GIST (geom);
+CREATE INDEX IF NOT EXISTS idx_detections_class ON public.detections (class_label);
+CREATE INDEX IF NOT EXISTS idx_detections_risk ON public.detections (risk_level);
 CREATE INDEX IF NOT EXISTS idx_reports_run_id ON public.reports (run_id);
 
 -- 6. Storage Buckets Setup (Public)

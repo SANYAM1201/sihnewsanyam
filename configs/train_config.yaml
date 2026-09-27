@@ -1,0 +1,91 @@
+# SONAR SENTRY SIH-26057: Production Training Configuration
+# Model: YOLOv8s with WERB Backbone + D-GRM Reasoning + SADH Physics Loss
+
+project:
+  name: "sonar_sentry_sih2026"
+  task: "detect"
+  experiment_name: "werb_dgrm_sadh_baseline"
+  seed: 42
+  device: "mps"  # Apple Silicon MPS or cuda or cpu
+
+dataset:
+  train: "data/processed/train/images"
+  val: "data/processed/val/images"
+  test: "data/processed/test/images"
+  num_classes: 6
+  names:
+    0: "ghost_net"
+    1: "sunken_debris"
+    2: "shipwreck"
+    3: "pipeline"
+    4: "seafloor_rock"
+    5: "metal_drum"
+
+model:
+  architecture: "werb_dgrm_sadh"
+  backbone: "WERBBackbone"
+  input_channels: 3
+  img_size: 640
+  pretrained: true
+  pretrained_weights: "weights/yolov8s.pt"
+
+hyperparameters:
+  epochs: 100
+  batch_size: 16
+  workers: 4
+  optimizer: "AdamW"
+  lr0: 0.001
+  lrf: 0.01
+  momentum: 0.937
+  weight_decay: 0.0005
+  warmup_epochs: 3.0
+  warmup_momentum: 0.8
+  warmup_bias_lr: 0.1
+
+physics_loss:
+  enabled: true
+  lambda_height: 1.0
+  lambda_shadow: 1.0
+  lambda_phys: 0.5
+  geology_penalty_weight: 0.3
+  default_altitude_m: 10.0
+  default_slant_range_m: 35.0
+
+graph_reasoning:
+  enabled: true
+  spatial_k: 4
+  feature_k: 4
+  tau: 1.0
+  residual_weight: 0.5
+
+augmentations:
+  speckle_noise:
+    prob: 0.5
+    sigma: 0.3
+  heave_stripes:
+    prob: 0.4
+    amplitude: 45.0
+    period: 16
+  acoustic_shadow_jitter:
+    prob: 0.3
+    scale_range: [0.8, 1.2]
+  mosaic: 1.0
+  mixup: 0.15
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+  fliplr: 0.5
+  flipud: 0.0
+
+validation:
+  val_interval: 1
+  save_period: 5
+  conf_threshold: 0.25
+  iou_threshold: 0.60
+  max_det: 300
+  metrics: ["mAP50", "mAP50-95", "precision", "recall", "physics_consistency"]
+
+export:
+  formats: ["onnx", "torchscript"]
+  dynamic_axes: true
+  opset: 17

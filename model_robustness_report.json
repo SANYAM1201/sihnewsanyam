@@ -1,0 +1,77 @@
+{
+  "dataset_evaluation": {
+    "scans_evaluated": 24,
+    "total_detections": 32,
+    "class_distribution": {
+      "Shipwreck": 32
+    },
+    "mean_raw_conf": 0.5328125,
+    "mean_enhanced_conf": 0.5217875,
+    "mean_physics_conf": 0.7478437499999999,
+    "mean_height_m": 2993.985
+  },
+  "speckle_stress_test": [
+    {
+      "sigma": 0.0,
+      "raw_detections": 5,
+      "raw_conf": 0.599,
+      "dsp_detections": 7,
+      "dsp_conf": 0.515
+    },
+    {
+      "sigma": 0.05,
+      "raw_detections": 5,
+      "raw_conf": 0.595,
+      "dsp_detections": 7,
+      "dsp_conf": 0.517
+    },
+    {
+      "sigma": 0.15,
+      "raw_detections": 5,
+      "raw_conf": 0.56,
+      "dsp_detections": 7,
+      "dsp_conf": 0.516
+    },
+    {
+      "sigma": 0.25,
+      "raw_detections": 5,
+      "raw_conf": 0.485,
+      "dsp_detections": 8,
+      "dsp_conf": 0.495
+    },
+    {
+      "sigma": 0.4,
+      "raw_detections": 4,
+      "raw_conf": 0.468,
+      "dsp_detections": 7,
+      "dsp_conf": 0.505
+    }
+  ],
+  "stripe_stress_test": [
+    {
+      "amplitude": 0,
+      "raw_detections": 5,
+      "dsp_detections": 7
+    },
+    {
+      "amplitude": 30,
+      "raw_detections": 5,
+      "dsp_detections": 5
+    },
+    {
+      "amplitude": 60,
+      "raw_detections": 4,
+      "dsp_detections": 5
+    },
+    {
+      "amplitude": 90,
+      "raw_detections": 0,
+      "dsp_detections": 5
+    }
+  ],
+  "false_alarm_rejection": {
+    "true_hazard_boost": 0.907,
+    "false_alarm_penalty_pct": 45.0,
+    "net_preservation_score": 0.751
+  }
+}

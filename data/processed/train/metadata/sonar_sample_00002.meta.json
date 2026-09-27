@@ -1,0 +1,68 @@
+{
+  "image_file": "sonar_sample_00002.jpg",
+  "width": 640,
+  "height": 640,
+  "altitude_m": 11.25,
+  "targets": [
+    {
+      "class_id": 3,
+      "class_name": "pipeline",
+      "bbox_xywh": [
+        0.9375,
+        0.2922,
+        0.0656,
+        0.0344
+      ],
+      "height_m": 0.42,
+      "shadow_len_px": 10,
+      "slant_range_m": 40.47,
+      "altitude_m": 11.25,
+      "is_geology": false
+    },
+    {
+      "class_id": 0,
+      "class_name": "ghost_net",
+      "bbox_xywh": [
+        0.6695,
+        0.7234,
+        0.0516,
+        0.0375
+      ],
+      "height_m": 0.88,
+      "shadow_len_px": 10,
+      "slant_range_m": 14.37,
+      "altitude_m": 11.25,
+      "is_geology": false
+    },
+    {
+      "class_id": 0,
+      "class_name": "ghost_net",
+      "bbox_xywh": [
+        0.832,
+        0.143,
+        0.0766,
+        0.0484
+      ],
+      "height_m": 2.18,
+      "shadow_len_px": 36,
+      "slant_range_m": 29.38,
+      "altitude_m": 11.25,
+      "is_geology": false
+    },
+    {
+      "class_id": 0,
+      "class_name": "ghost_net",
+      "bbox_xywh": [
+        0.8945,
+        0.7164,
+        0.0484,
+        0.0672
+      ],
+      "height_m": 2.17,
+      "shadow_len_px": 45,
+      "slant_range_m": 37.03,
+      "altitude_m": 11.25,
+      "is_geology": false
+    }
+  ]
+}

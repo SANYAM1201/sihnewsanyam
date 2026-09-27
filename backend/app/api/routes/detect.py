@@ -376,6 +376,7 @@ def _apply_detection_filters(
 
 
 @router.post("/api/detect/xtf", response_model=DetectResponse)
+@router.post("/api/xtf/upload", response_model=DetectResponse)
 async def detect_xtf(
     request: Request,
     file: UploadFile = File(...),

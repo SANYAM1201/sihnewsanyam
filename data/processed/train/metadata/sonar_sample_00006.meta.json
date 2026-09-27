@@ -1,0 +1,53 @@
+{
+  "image_file": "sonar_sample_00006.jpg",
+  "width": 640,
+  "height": 640,
+  "altitude_m": 13.21,
+  "targets": [
+    {
+      "class_id": 5,
+      "class_name": "metal_drum",
+      "bbox_xywh": [
+        0.6703,
+        0.3969,
+        0.0437,
+        0.0656
+      ],
+      "height_m": 1.55,
+      "shadow_len_px": 11,
+      "slant_range_m": 14.84,
+      "altitude_m": 13.21,
+      "is_geology": false
+    },
+    {
+      "class_id": 2,
+      "class_name": "shipwreck",
+      "bbox_xywh": [
+        0.818,
+        0.3461,
+        0.0891,
+        0.0453
+      ],
+      "height_m": 2.26,
+      "shadow_len_px": 29,
+      "slant_range_m": 27.34,
+      "altitude_m": 13.21,
+      "is_geology": false
+    },
+    {
+      "class_id": 2,
+      "class_name": "shipwreck",
+      "bbox_xywh": [
+        0.2125,
+        0.2,
+        0.0656,
+        0.0406
+      ],
+      "height_m": 1.6,
+      "shadow_len_px": 24,
+      "slant_range_m": 32.03,
+      "altitude_m": 13.21,
+      "is_geology": false
+    }
+  ]
+}

@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import Topbar from '../../components/Topbar/Topbar'
 import { deleteReport, getRun, listReports } from '../../api/client'
 import { exportReportsCsv, exportRunCsv } from '../../utils/exportReport'
+import ReportExporter from '../../components/Reports/ReportExporter'
+import PDFPreview from '../../components/Reports/PDFPreview'
+import GeoJSONViewer from '../../components/Reports/GeoJSONViewer'
 import styles from './Reports.module.css'
 
 const STATUS_TABS = ['All', 'Reviewed', 'Pending', 'Flagged']
@@ -467,6 +470,21 @@ export default function Reports() {
             >
               <ChevronRightIcon />
             </button>
+          </div>
+        </div>
+
+        {/* Advanced Multi-Format Dissemination Suite */}
+        <div style={{ marginTop: '36px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ background: 'var(--gesso-surface, #e7e5e7)', padding: '20px', borderRadius: '10px', border: '1px solid var(--gesso-divider)' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 700 }}>
+              Official Hydrographic Dissemination Suite
+            </h3>
+            <ReportExporter runId="active" />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+            <PDFPreview reportId="1" missionName="MSN-3D02 Sagar Nidhi Hydrographic Survey" />
+            <GeoJSONViewer geojsonUrl="/api/export/geojson" />
           </div>
         </div>
       </div>

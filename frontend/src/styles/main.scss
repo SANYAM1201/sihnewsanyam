@@ -1,0 +1,34 @@
+/* Sonar Sentry SCSS Variables & Design Tokens */
+$primary-color: #2e3700;
+$secondary-color: #505b28;
+$surface-bg: #e7e5e7;
+$canvas-bg: #f4f2f6;
+$accent-green: #16a34a;
+$danger-red: #ef4444;
+
+:root {
+  --sonar-primary: #2e3700;
+  --sonar-secondary: #505b28;
+  --sonar-bg: #f4f2f6;
+  --sonar-surface: #e7e5e7;
+  --sonar-border: rgba(0, 0, 0, 0.08);
+}
+
+.sonar-heading {
+  font-family: var(--gesso-font-display, sans-serif);
+  font-weight: 700;
+  color: var(--gesso-fg, #1a1a1a);
+}
+
+.sonar-mono {
+  font-family: var(--gesso-font-mono, monospace);
+}
+
+.sonar-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
