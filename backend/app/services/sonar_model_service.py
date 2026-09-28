@@ -23,12 +23,12 @@ _PROJECT_DIR = _BACKEND_DIR
 _REPO_ROOT = _BACKEND_DIR.parent if _BACKEND_DIR.name == "backend" else _BACKEND_DIR
 
 _CANDIDATE_WEIGHTS = [
-    _REPO_ROOT / "weights" / "best_werb_dgrm_sadh.pt",
-    _BACKEND_DIR / "weights" / "best_werb_dgrm_sadh.pt",
     _BACKEND_DIR / "best.pt",
     _REPO_ROOT / "best.pt",
     _BACKEND_DIR / "model" / "best.pt",
     _PROJECT_DIR / "model" / "best.pt",
+    _REPO_ROOT / "weights" / "best_werb_dgrm_sadh.pt",
+    _BACKEND_DIR / "weights" / "best_werb_dgrm_sadh.pt",
     _BACKEND_DIR / "yolov8s.pt",
     _REPO_ROOT / "yolov8s.pt",
 ]
@@ -102,8 +102,27 @@ class SonarModelService(ModelService):
     def load(self) -> None:
         from ultralytics import YOLO
 
-        self._resolved_path = resolve_model_path(self._configured_path)
-        self._model = YOLO(str(self._resolved_path))
+        try:
+            self._resolved_path = resolve_model_path(self._configured_path)
+        except Exception:
+            self._resolved_path = None
+
+        candidate_list = ([self._resolved_path] if self._resolved_path else []) + _CANDIDATE_WEIGHTS
+        loaded_successfully = False
+
+        for candidate in candidate_list:
+            if candidate and candidate.is_file():
+                try:
+                    self._model = YOLO(str(candidate))
+                    self._resolved_path = candidate
+                    loaded_successfully = True
+                    break
+                except Exception as exc:
+                    logger.warning("Could not load weights from %s: %s. Trying next candidate...", candidate, exc)
+
+        if not loaded_successfully or self._model is None:
+            raise RuntimeError("Failed to load any valid YOLO weights from candidate paths.")
+
         names = getattr(self._model, "names", None)
         if isinstance(names, dict) and names:
             self._names = {int(k): str(v) for k, v in names.items()}
