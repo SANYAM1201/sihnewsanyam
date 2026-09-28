@@ -214,7 +214,6 @@ async def detect(
 
     # ⭐ NEW: Generate patches
     from app.services.patch_service import crop_anomaly_patch
-    import uuid
     try:
         swath_array = cv2.imdecode(np.frombuffer(inference_payload, np.uint8), cv2.IMREAD_COLOR)
         if swath_array is not None:
