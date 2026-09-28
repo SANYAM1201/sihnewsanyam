@@ -296,70 +296,74 @@ class GeoTIFFService:
         if not datasets:
             raise ValueError("No valid GeoTIFF files found for provided run_ids")
 
-        # Step 2: Merge with rasterio (handles reprojection + pixel alignment automatically)
-        mosaic_array, mosaic_transform = merge(
-            datasets,
-            method="first",
-            resampling=Resampling.bilinear,
-            nodata=0,
-        )
+        try:
+            # Step 2: Merge with rasterio (handles reprojection + pixel alignment automatically)
+            mosaic_array, mosaic_transform = merge(
+                datasets,
+                method="first",
+                resampling=Resampling.bilinear,
+                nodata=0,
+            )
 
-        mosaic_meta = datasets[0].meta.copy()
-        mosaic_meta.update({
-            "height": mosaic_array.shape[1],
-            "width": mosaic_array.shape[2],
-            "transform": mosaic_transform,
-        })
+            mosaic_meta = datasets[0].meta.copy()
+            mosaic_meta.update({
+                "height": mosaic_array.shape[1],
+                "width": mosaic_array.shape[2],
+                "transform": mosaic_transform,
+            })
 
-        # Step 3: Feathering - distance-weighted blending in overlap zones
-        blended = np.zeros_like(mosaic_array, dtype=np.float32)
-        weight_sum = np.zeros(mosaic_array.shape[1:], dtype=np.float32)
+            # Step 3: Feathering - distance-weighted blending in overlap zones
+            blended = np.zeros_like(mosaic_array, dtype=np.float32)
+            weight_sum = np.zeros(mosaic_array.shape[1:], dtype=np.float32)
 
-        for ds in datasets:
-            try:
-                win = window_from_bounds(
-                    *ds.bounds,
-                    transform=mosaic_transform,
-                    width=mosaic_array.shape[2],
-                    height=mosaic_array.shape[1],
-                )
-                row_off = max(0, int(win.row_off))
-                col_off = max(0, int(win.col_off))
+            for ds in datasets:
+                try:
+                    win = window_from_bounds(
+                        *ds.bounds,
+                        transform=mosaic_transform,
+                        width=mosaic_array.shape[2],
+                        height=mosaic_array.shape[1],
+                    )
+                    row_off = max(0, int(win.row_off))
+                    col_off = max(0, int(win.col_off))
 
-                read_h = min(int(win.height), mosaic_array.shape[1] - row_off)
-                read_w = min(int(win.width), mosaic_array.shape[2] - col_off)
-                if read_h <= 0 or read_w <= 0:
-                    continue
+                    read_h = min(int(win.height), mosaic_array.shape[1] - row_off)
+                    read_w = min(int(win.width), mosaic_array.shape[2] - col_off)
+                    if read_h <= 0 or read_w <= 0:
+                        continue
 
-                tile_read = ds.read(
-                    out_shape=(ds.count, read_h, read_w),
-                    resampling=Resampling.bilinear,
-                ).astype(np.float32)
+                    tile_read = ds.read(
+                        out_shape=(ds.count, read_h, read_w),
+                        resampling=Resampling.bilinear,
+                    ).astype(np.float32)
 
-                h, w = tile_read.shape[1], tile_read.shape[2]
+                    h, w = tile_read.shape[1], tile_read.shape[2]
 
-                # Distance-to-edge weight map (cosine taper - smooth feathering)
-                rows = np.linspace(0, np.pi, h)
-                cols = np.linspace(0, np.pi, w)
-                row_weight = np.sin(rows)
-                col_weight = np.sin(cols)
-                weight_2d = np.outer(row_weight, col_weight)
-                weight_2d = np.clip(weight_2d, 0.01, 1.0)
+                    # Distance-to-edge weight map (cosine taper - smooth feathering)
+                    rows = np.linspace(0, np.pi, h)
+                    cols = np.linspace(0, np.pi, w)
+                    row_weight = np.sin(rows)
+                    col_weight = np.sin(cols)
+                    weight_2d = np.outer(row_weight, col_weight)
+                    weight_2d = np.clip(weight_2d, 0.01, 1.0)
 
-                # Accumulate
-                blended[:, row_off : row_off + h, col_off : col_off + w] += tile_read * weight_2d
-                weight_sum[row_off : row_off + h, col_off : col_off + w] += weight_2d
-            except Exception as e:
-                logger.warning("Error during swath feathering tile read: %s", e)
+                    # Accumulate
+                    blended[:, row_off : row_off + h, col_off : col_off + w] += tile_read * weight_2d
+                    weight_sum[row_off : row_off + h, col_off : col_off + w] += weight_2d
+                except Exception as e:
+                    logger.warning("Error during swath feathering tile read: %s", e)
 
-        # Normalize
-        weight_sum = np.where(weight_sum == 0, 1.0, weight_sum)
-        blended = blended / weight_sum
-        blended = np.clip(blended, 0, 255).astype(np.uint8)
-
-        # Close all source datasets
-        for ds in datasets:
-            ds.close()
+            # Normalize
+            weight_sum = np.where(weight_sum == 0, 1.0, weight_sum)
+            blended = blended / weight_sum
+            blended = np.clip(blended, 0, 255).astype(np.uint8)
+        finally:
+            # Always close all source datasets to prevent resource leaks
+            for ds in datasets:
+                try:
+                    ds.close()
+                except Exception:
+                    pass
 
         # Convert to PNG bytes
         if blended.shape[0] == 1:

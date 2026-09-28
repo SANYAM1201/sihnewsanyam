@@ -10,7 +10,6 @@ const NAV_ITEMS = [
   { path: '/reports', label: 'Reports & Export', icon: '📑' },
   { path: '/health', label: 'System Health', icon: '🩺' },
   { path: '/settings', label: 'Settings', icon: '⚙️' },
-  { path: '/api-docs', label: 'API Docs', icon: '📖' },
 ];
 
 export default function Sidebar() {

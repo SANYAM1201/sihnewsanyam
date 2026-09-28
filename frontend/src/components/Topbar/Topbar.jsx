@@ -11,7 +11,6 @@ const NAV_ITEMS = [
   { key: 'uploads', label: 'Uploads', to: '/uploads' },
   { key: 'health', label: 'Health', to: '/health' },
   { key: 'settings', label: 'Settings', to: '/settings' },
-  { key: 'api-docs', label: 'API Docs', to: '/api-docs' },
 ]
 
 export default function Topbar({ activePage = 'launch' }) {
