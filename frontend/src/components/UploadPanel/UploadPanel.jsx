@@ -73,28 +73,6 @@ export default function UploadPanel({ file, previewUrl, onFile }) {
           >
             Browse files
           </button>
-          <button
-            className={styles.btnDemoScan}
-            type="button"
-            title="Instantly generate an authentic 450 kHz dual-channel side-scan sonar swath"
-            onClick={async (e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              try {
-                const { createDemoSonarFile } = await import('../../utils/generateDemoSonar')
-                const { sonarAudio } = await import('../../utils/sonarAudio')
-                sonarAudio.playPing(1100, 0.4)
-                const demoFile = await createDemoSonarFile()
-                takeFile(demoFile)
-              } catch (err) {
-                console.error('Failed to load demo swath:', err)
-              }
-            }}
-          >
-            <span style={{ fontSize: '15px' }}>⚡</span>
-            <span>Load Demo Sonar Scan</span>
-            <span className={styles.demoTag}>450 kHz</span>
-          </button>
           {file ? (
             <button
               className={styles.btnRemove}

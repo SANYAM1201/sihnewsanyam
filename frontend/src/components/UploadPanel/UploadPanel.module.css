@@ -128,45 +128,6 @@
   outline-offset: 2px;
 }
 
-.btnDemoScan {
-  font-size: 13px;
-  font-weight: 700;
-  padding: 12px 22px;
-  border-radius: var(--gesso-radius-md);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  color: #ffffff;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 2px 10px rgba(2, 132, 199, 0.28);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  letter-spacing: 0.02em;
-}
-
-.btnDemoScan:hover {
-  background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
-  box-shadow: 0 0 18px rgba(2, 132, 199, 0.55);
-  transform: translateY(-1px);
-  border-color: #38bdf8;
-}
-
-.btnDemoScan:active {
-  transform: translateY(0px);
-  box-shadow: 0 1px 4px rgba(2, 132, 199, 0.3);
-}
-
-.demoTag {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
 .btnRemove {
   font-size: 13px;
   font-weight: 600;
