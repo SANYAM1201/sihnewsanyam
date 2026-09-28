@@ -104,6 +104,72 @@ export default function LiveSurvey() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              type="button"
+              style={{
+                padding: '8px 16px',
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                color: '#ffffff',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 700,
+                border: '1px solid #38bdf8',
+                boxShadow: '0 0 12px rgba(2, 132, 199, 0.4)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+              onClick={async () => {
+                const { sonarAudio } = await import('../utils/sonarAudio');
+                sonarAudio.playDetectionAlert();
+                setIsProcessing(true);
+                setUploadProgress(15);
+                setToastMsg('Simulating real-time vessel ping stream from Triton XTF track...');
+
+                setTimeout(() => setUploadProgress(55), 400);
+                setTimeout(() => {
+                  setUploadProgress(100);
+                  setLiveDetections([
+                    {
+                      id: 'live-trg-01',
+                      class_label: 'Sunken Shipwreck Hull',
+                      confidence: 0.965,
+                      risk_level: 'critical',
+                      latitude: 18.9220,
+                      longitude: 72.8347,
+                      sadh_height_m: 4.6,
+                      shadow_length_m: 13.8,
+                    },
+                    {
+                      id: 'live-trg-02',
+                      class_label: 'Ghost Fishing Net Mesh',
+                      confidence: 0.924,
+                      risk_level: 'critical',
+                      latitude: 18.9285,
+                      longitude: 72.8410,
+                      sadh_height_m: 2.1,
+                      shadow_length_m: 6.2,
+                    },
+                    {
+                      id: 'live-trg-03',
+                      class_label: 'Subsea Pipeline Section',
+                      confidence: 0.892,
+                      risk_level: 'medium',
+                      latitude: 18.9190,
+                      longitude: 72.8490,
+                      sadh_height_m: 1.4,
+                      shadow_length_m: 4.1,
+                    },
+                  ]);
+                  setToastMsg('✨ 3 Tactical Targets Detected & Georeferenced on WGS-84 Grid!');
+                  setIsProcessing(false);
+                }, 1100);
+              }}
+            >
+              <span>⚡</span> Simulate Swath Stream
+            </button>
+
             <label
               style={{
                 padding: '8px 16px',

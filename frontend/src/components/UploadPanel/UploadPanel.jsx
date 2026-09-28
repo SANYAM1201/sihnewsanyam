@@ -74,21 +74,9 @@ export default function UploadPanel({ file, previewUrl, onFile }) {
             Browse files
           </button>
           <button
+            className={styles.btnDemoScan}
             type="button"
-            style={{
-              padding: '8px 16px',
-              fontSize: '13px',
-              fontWeight: 600,
-              background: '#0284c7',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: 'var(--gesso-radius-md, 8px)',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'background 0.2s ease',
-            }}
+            title="Instantly generate an authentic 450 kHz dual-channel side-scan sonar swath"
             onClick={async (e) => {
               e.preventDefault()
               e.stopPropagation()
@@ -103,7 +91,9 @@ export default function UploadPanel({ file, previewUrl, onFile }) {
               }
             }}
           >
-            <span>⚡</span> Load Demo Sonar Scan
+            <span style={{ fontSize: '15px' }}>⚡</span>
+            <span>Load Demo Sonar Scan</span>
+            <span className={styles.demoTag}>450 kHz</span>
           </button>
           {file ? (
             <button
