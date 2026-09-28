@@ -3,6 +3,7 @@ import Topbar from '../components/Topbar/Topbar';
 import Footer from '../components/Layout/Footer';
 import ShadowCurveChart from '../components/AnomalyModal/ShadowCurveChart';
 import RiskBadge from '../components/common/RiskBadge';
+import Seabed3DViewer from '../components/Bathymetry/Seabed3DViewer';
 import '../App.css';
 
 export default function AnomalyInspector() {
@@ -119,6 +120,14 @@ export default function AnomalyInspector() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Interactive 3D Seabed Bathymetric Topography */}
+        <div style={{ marginTop: '16px' }}>
+          <Seabed3DViewer
+            altitude={selectedTarget.altitude}
+            depth={selectedTarget.targetHeight ? 24.5 : 25.0}
+          />
         </div>
       </div>
 

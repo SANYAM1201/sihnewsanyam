@@ -73,6 +73,38 @@ export default function UploadPanel({ file, previewUrl, onFile }) {
           >
             Browse files
           </button>
+          <button
+            type="button"
+            style={{
+              padding: '8px 16px',
+              fontSize: '13px',
+              fontWeight: 600,
+              background: '#0284c7',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: 'var(--gesso-radius-md, 8px)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'background 0.2s ease',
+            }}
+            onClick={async (e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              try {
+                const { createDemoSonarFile } = await import('../../utils/generateDemoSonar')
+                const { sonarAudio } = await import('../../utils/sonarAudio')
+                sonarAudio.playPing(1100, 0.4)
+                const demoFile = await createDemoSonarFile()
+                takeFile(demoFile)
+              } catch (err) {
+                console.error('Failed to load demo swath:', err)
+              }
+            }}
+          >
+            <span>⚡</span> Load Demo Sonar Scan
+          </button>
           {file ? (
             <button
               className={styles.btnRemove}
