@@ -29,28 +29,71 @@ export default function AnomalyModal({ detection, onClose, onMarkSalvage }) {
 
   // ⭐ Draw cropped sonogram snippet and shadow mask
   useEffect(() => {
-    const imgUrl = detection.image_url || detection.imageUrl || (detection.run_id ? `/api/runs/${detection.run_id}/image` : null);
-
-    if (!detection || !detection.bbox || !imgUrl) {
-      setImageError(true);
-      return;
-    }
+    if (!detection) return;
 
     const cropCanvas = cropCanvasRef.current;
     const maskCanvas = maskCanvasRef.current;
-
     if (!cropCanvas || !maskCanvas) return;
-
     const cropCtx = cropCanvas.getContext('2d');
     const maskCtx = maskCanvas.getContext('2d');
-
     if (!cropCtx || !maskCtx) return;
 
     // Clear canvases
     cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
     maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
 
-    // Get bounding box and image dimensions
+    if (detection.image_url) {
+      // --- LEFT: raw patch ---
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = detection.image_url;
+      img.onload = () => {
+        cropCanvas.width = img.naturalWidth;
+        cropCanvas.height = img.naturalHeight;
+        cropCtx.drawImage(img, 0, 0);
+        // Overlay bbox rectangle if pixel coords available
+        if (detection.bbox) {
+          const bboxObj = Array.isArray(detection.bbox) 
+            ? { x: detection.bbox[0], y: detection.bbox[1], width: detection.bbox[2]-detection.bbox[0], height: detection.bbox[3]-detection.bbox[1] }
+            : detection.bbox;
+          const [x1, y1, w, h] = [bboxObj.x || 0, bboxObj.y || 0, bboxObj.width || 0, bboxObj.height || 0];
+          cropCtx.strokeStyle = '#ff4444';
+          cropCtx.lineWidth = 2;
+          // Note: the patch is already cropped to the bbox, so the bounding box relative to the patch is the whole patch!
+          // So we don't draw it, or we draw it around the border.
+          cropCtx.strokeRect(0, 0, img.naturalWidth, img.naturalHeight);
+        }
+        setCanvasLoaded(true);
+        setImageError(false);
+      };
+      img.onerror = () => setImageError(true);
+
+      // --- RIGHT: shadow mask ---
+      if (detection.mask_url) {
+        const mask = new Image();
+        mask.crossOrigin = 'anonymous';
+        mask.src = detection.mask_url;
+        mask.onload = () => {
+          maskCanvas.width = mask.naturalWidth;
+          maskCanvas.height = mask.naturalHeight;
+          maskCtx.drawImage(mask, 0, 0);
+          // Tint: multiply white pixels cyan for UI clarity
+          maskCtx.globalCompositeOperation = 'multiply';
+          maskCtx.fillStyle = 'rgba(0, 229, 255, 0.4)';
+          maskCtx.fillRect(0, 0, mask.naturalWidth, mask.naturalHeight);
+          maskCtx.globalCompositeOperation = 'source-over';
+        };
+      }
+      return;
+    }
+
+    // Client-side fallback if backend doesn't provide image_url
+    const imgUrl = detection.imageUrl || (detection.run_id ? `/api/runs/${detection.run_id}/image` : null);
+    if (!imgUrl || !detection.bbox) {
+      setImageError(true);
+      return;
+    }
+
     const bbox = detection.bbox;
     const imgWidth = detection.image_width || 1024;
     const imgHeight = detection.image_height || 256;
@@ -67,50 +110,32 @@ export default function AnomalyModal({ detection, onClose, onMarkSalvage }) {
       x2 = (bbox.x ?? 0) + (bbox.width ?? 100);
       y2 = (bbox.y ?? 0) + (bbox.height ?? 100);
     }
-
     const bboxWidth = Math.max(10, x2 - x1);
     const bboxHeight = Math.max(10, y2 - y1);
 
-    // Calculate canvas dimensions (max 320px wide, maintain aspect ratio)
     let canvasWidth = Math.min(320, bboxWidth);
     let canvasHeight = (bboxHeight / bboxWidth) * canvasWidth;
     canvasHeight = Math.min(canvasHeight, 256);
 
-    // Set canvas dimensions
     cropCanvas.width = canvasWidth;
     cropCanvas.height = canvasHeight;
     maskCanvas.width = canvasWidth;
     maskCanvas.height = canvasHeight;
 
-    // Load image
     const image = new Image();
     image.crossOrigin = 'anonymous';
     image.src = imgUrl;
 
     let isMounted = true;
-
-    const drawCanvases = () => {
+    image.onload = () => {
       if (!isMounted) return;
-
       try {
-        // Apply contrast boost filter
         cropCtx.filter = 'contrast(130%) brightness(110%)';
-
-        // Draw cropped region
-        cropCtx.drawImage(
-          image,
-          x1, y1, bboxWidth, bboxHeight,  // Source rectangle
-          0, 0, canvasWidth, canvasHeight   // Destination rectangle
-        );
-
-        // Reset filter for mask
+        cropCtx.drawImage(image, x1, y1, bboxWidth, bboxHeight, 0, 0, canvasWidth, canvasHeight);
         cropCtx.filter = 'none';
 
-        // Get image data from crop canvas for mask processing
         const cropImageData = cropCtx.getImageData(0, 0, canvasWidth, canvasHeight);
         const cropData = cropImageData.data;
-
-        // Create mask by thresholding luminance
         const maskImageData = maskCtx.createImageData(canvasWidth, canvasHeight);
         const maskData = maskImageData.data;
 
@@ -118,58 +143,25 @@ export default function AnomalyModal({ detection, onClose, onMarkSalvage }) {
           const r = cropData[i];
           const g = cropData[i + 1];
           const b = cropData[i + 2];
-
-          // Calculate luminance and apply threshold
           const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-
-          // Threshold: if luminance < 80, it's shadow (black), else seafloor (grey)
           const pixelValue = luminance < 80 ? 0 : 220;
-
-          maskData[i] = pixelValue;     // R
-          maskData[i + 1] = pixelValue; // G
-          maskData[i + 2] = pixelValue; // B
-          maskData[i + 3] = 255;        // Alpha
+          maskData[i] = pixelValue;
+          maskData[i + 1] = pixelValue;
+          maskData[i + 2] = pixelValue;
+          maskData[i + 3] = 255;
         }
-
-        // Put mask data on mask canvas
         maskCtx.putImageData(maskImageData, 0, 0);
-
-        // Draw red rectangle outline (acoustic highlight zone)
-        const rectWidth = canvasWidth / 2;
-        const rectHeight = canvasHeight / 2;
-        const rectX = canvasWidth / 4;
-        const rectY = 0;
-
-        maskCtx.strokeStyle = '#ff0000';
-        maskCtx.lineWidth = 2;
-        maskCtx.setLineDash([5, 5]);
-        maskCtx.strokeRect(rectX, rectY, rectWidth, rectHeight);
-        maskCtx.setLineDash([]);
 
         setCanvasLoaded(true);
         setImageError(false);
-
       } catch (error) {
-        console.error('Error drawing canvases:', error);
-        if (isMounted) {
-          setImageError(true);
-        }
+        if (isMounted) setImageError(true);
       }
     };
-
-    image.onload = drawCanvases;
     image.onerror = () => {
-      if (isMounted) {
-        setImageError(true);
-      }
+      if (isMounted) setImageError(true);
     };
-
-    return () => {
-      isMounted = false;
-      if (image.src && image.src.startsWith('blob:')) {
-        URL.revokeObjectURL(image.src);
-      }
-    };
+    return () => { isMounted = false; };
   }, [detection]);
 
   return (

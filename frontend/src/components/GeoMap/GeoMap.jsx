@@ -215,7 +215,7 @@ export default function GeoMap({
         {/* ⭐ NEW: ImageOverlay for Sonar Swath - Rendered after Polygon/Marker layers */}
         {showSwath && swathOverlays.map(overlay => (
           <ImageOverlay
-            key={overlay.id}
+            key={overlay.imageUrl}
             url={overlay.imageUrl}
             bounds={overlay.bounds}
             opacity={overlay.opacity}
