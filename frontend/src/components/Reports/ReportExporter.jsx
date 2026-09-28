@@ -134,6 +134,44 @@ export default function ReportExporter({ runId, missionId = 'MSN-CURRENT', onExp
             {downloading === 'csv' ? 'Exporting...' : 'Export CSV'}
           </button>
         </div>
+
+        {/* OGC KML 2.2 for Google Earth / ECDIS */}
+        <div className="export-action-item">
+          <div className="action-info">
+            <span className="format-badge kml" style={{ background: '#0284c7', color: '#fff' }}>KML</span>
+            <div>
+              <h4>Google Earth / ECDIS (KML)</h4>
+              <p>3D placemarks with threat balloons for navigation consoles</p>
+            </div>
+          </div>
+          <button
+            className="export-btn btn-kml"
+            style={{ background: '#0284c7', color: '#fff' }}
+            disabled={downloading !== null}
+            onClick={() => handleDownload('kml', '/api/export/kml', `targets_${missionId}.kml`)}
+          >
+            {downloading === 'kml' ? 'Exporting...' : 'Export KML'}
+          </button>
+        </div>
+
+        {/* Naval Salvage Mission Plan */}
+        <div className="export-action-item">
+          <div className="action-info">
+            <span className="format-badge plan" style={{ background: '#7c3aed', color: '#fff' }}>PLAN</span>
+            <div>
+              <h4>Salvage Route &amp; Trajectory</h4>
+              <p>Risk-ranked recovery sequence with nautical clearance corridor</p>
+            </div>
+          </div>
+          <button
+            className="export-btn btn-plan"
+            style={{ background: '#7c3aed', color: '#fff' }}
+            disabled={downloading !== null}
+            onClick={() => handleDownload('geojson', '/api/salvage/route', `salvage_plan_${missionId}.json`)}
+          >
+            {downloading === 'geojson' ? 'Optimizing...' : 'Generate Plan'}
+          </button>
+        </div>
       </div>
 
       {statusMsg && <div className="export-status-banner">{statusMsg}</div>}
