@@ -4,8 +4,6 @@ import Dashboard from './pages/Dashboard';
 import Reports from './pages/Reports/Reports';
 import LiveSurvey from './pages/LiveSurvey';
 import AnomalyInspector from './pages/AnomalyInspector';
-import Health from './pages/Health';
-import Settings from './pages/Settings';
 import Map from './pages/Map/Map';
 import Uploads from './pages/Uploads/Uploads';
 import DetectionResults from './pages/DetectionResults/DetectionResults';
@@ -28,10 +26,6 @@ export default function App() {
         <Route path="/uploads" element={<Uploads />} />
         <Route path="/results" element={<Navigate to="/uploads" replace />} />
         <Route path="/results/:runId" element={<DetectionResults />} />
-
-        {/* Cluster Management */}
-        <Route path="/health" element={<Health />} />
-        <Route path="/settings" element={<Settings />} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

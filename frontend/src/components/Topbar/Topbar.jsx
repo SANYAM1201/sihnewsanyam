@@ -9,8 +9,6 @@ const NAV_ITEMS = [
   { key: 'anomalies', label: 'Anomalies', to: '/anomalies' },
   { key: 'reports', label: 'Reports', to: '/reports' },
   { key: 'uploads', label: 'Uploads', to: '/uploads' },
-  { key: 'health', label: 'Health', to: '/health' },
-  { key: 'settings', label: 'Settings', to: '/settings' },
 ]
 
 export default function Topbar({ activePage = 'launch' }) {

@@ -8,8 +8,6 @@ const NAV_ITEMS = [
   { path: '/map', label: 'Swath Map', icon: '🗺️' },
   { path: '/anomalies', label: 'Anomaly Inspector', icon: '🔍' },
   { path: '/reports', label: 'Reports & Export', icon: '📑' },
-  { path: '/health', label: 'System Health', icon: '🩺' },
-  { path: '/settings', label: 'Settings', icon: '⚙️' },
 ];
 
 export default function Sidebar() {
