@@ -99,6 +99,7 @@ async def export_dossier(
 
 
 # ⭐ GeoTIFF Mosaic Endpoint
+@router.post("/mosaic")
 @router.post("/geotiff/mosaic")
 async def get_swath_mosaic(
     run_ids: list[str],

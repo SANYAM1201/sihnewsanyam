@@ -1,7 +1,10 @@
+import logging
 import os
 
 os.environ.setdefault("ULTRALYTICS_AUTOINSTALL", "0")
 os.environ.setdefault("YOLO_OFFLINE", "1")
+
+logger = logging.getLogger("sonar_app")
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager

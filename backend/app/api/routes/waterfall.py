@@ -53,6 +53,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+@router.websocket("/ws")
 @router.websocket("/ws/waterfall")
 @router.websocket("/api/waterfall")
 async def websocket_waterfall(websocket: WebSocket) -> None:
