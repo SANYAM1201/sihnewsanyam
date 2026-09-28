@@ -240,6 +240,8 @@ async def export_single_detection(
             "physics_confidence": det.physics_confidence,
             "verified": (det.physics_confidence or 1.0) >= 0.6,
         },
+        "image_url": det.image_url,
+        "mask_url": det.mask_url,
         "created_at": str(det.created_at),
     }
 

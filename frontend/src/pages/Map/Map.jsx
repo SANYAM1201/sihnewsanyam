@@ -90,6 +90,7 @@ export default function Map() {
         missionId: a.mission_id,
         detail: a.filename,
         isMission: false,
+        geotiff_available: true,
       }))
   }, [anomalies, selectedRunId])
 
@@ -267,6 +268,7 @@ export default function Map() {
             onSelect={handleSelectPoint}
             onOpenResults={openResults}
             basemap={basemap}
+            detections={activePoints}
           />
         </section>
       </main>

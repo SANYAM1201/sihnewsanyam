@@ -211,6 +211,24 @@ async def detect(
         else:
             enhanced_detections.append(item)
     detections = enhanced_detections
+
+    # ⭐ NEW: Generate patches
+    from app.services.patch_service import crop_anomaly_patch
+    import uuid
+    try:
+        swath_array = cv2.imdecode(np.frombuffer(inference_payload, np.uint8), cv2.IMREAD_COLOR)
+        if swath_array is not None:
+            for item in detections:
+                if item.bbox:
+                    # if detection_id is not set, generate a temp one for the filename
+                    anom_id = getattr(item, "detection_id", None) or uuid.uuid4().hex[:8]
+                    item.detection_id = anom_id
+                    img_url, mask_url = crop_anomaly_patch(swath_array, item.bbox, run.id, anom_id)
+                    item.image_url = img_url
+                    item.mask_url = mask_url
+    except Exception as e:
+        logger.warning("Failed to generate patches: %s", e)
+
     summary = normalizer._build_summary(detections)
 
     model_meta = inference_service.metadata()
@@ -234,6 +252,8 @@ async def detect(
             "longitude": d.longitude,
             "sadh_height_m": d.sadh_height_m,
             "physics_confidence": d.physics_confidence,
+            "image_url": getattr(d, "image_url", None),
+            "mask_url": getattr(d, "mask_url", None),
         }
         for d in detections
     ]
@@ -406,3 +426,20 @@ async def detect_xtf(
         min_object_size=min_object_size,
         db=db,
     )
+
+from fastapi.responses import FileResponse
+import glob
+
+@router.get("/api/anomaly/{anomaly_id}/patch")
+async def get_anomaly_patch(anomaly_id: str):
+    files = glob.glob(f"outputs/patches/*_{anomaly_id}_patch.png")
+    if files:
+        return FileResponse(files[0])
+    return FileResponse("outputs/patches/not_found.png", status_code=404)
+
+@router.get("/api/anomaly/{anomaly_id}/mask")
+async def get_anomaly_mask(anomaly_id: str):
+    files = glob.glob(f"outputs/patches/*_{anomaly_id}_mask.png")
+    if files:
+        return FileResponse(files[0])
+    return FileResponse("outputs/patches/not_found.png", status_code=404)

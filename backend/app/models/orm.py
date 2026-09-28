@@ -69,6 +69,8 @@ class Detection(Base):
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     sadh_height_m: Mapped[float | None] = mapped_column(Float, nullable=True)
     physics_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    mask_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
     run: Mapped["Run"] = relationship(back_populates="detections")

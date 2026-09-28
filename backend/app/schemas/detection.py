@@ -41,6 +41,8 @@ class DetectionItem(BaseModel):
     longitude: float | None = None
     sadh_height_m: float | None = None
     physics_confidence: float | None = None
+    image_url: str | None = None
+    mask_url: str | None = None
 
 
 class DetectionSummary(BaseModel):

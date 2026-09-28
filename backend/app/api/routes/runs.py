@@ -274,6 +274,8 @@ def list_map_points(
                     "latitude": item.latitude,
                     "longitude": item.longitude,
                     "depth_m": item.depth_m,
+                    "image_url": getattr(detection, "image_url", None),
+                    "mask_url": getattr(detection, "mask_url", None),
                 }
             )
     return {"items": items}
