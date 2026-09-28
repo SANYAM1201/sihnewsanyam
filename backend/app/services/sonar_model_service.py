@@ -20,10 +20,13 @@ _DEFAULT_NAMES = {
 
 _BACKEND_DIR = Path(__file__).resolve().parents[2]
 _PROJECT_DIR = _BACKEND_DIR
-_REPO_ROOT = _BACKEND_DIR
+_REPO_ROOT = _BACKEND_DIR.parent if _BACKEND_DIR.name == "backend" else _BACKEND_DIR
 
 _CANDIDATE_WEIGHTS = [
+    _REPO_ROOT / "weights" / "best_werb_dgrm_sadh.pt",
+    _BACKEND_DIR / "weights" / "best_werb_dgrm_sadh.pt",
     _BACKEND_DIR / "best.pt",
+    _REPO_ROOT / "best.pt",
     _BACKEND_DIR / "model" / "best.pt",
     _PROJECT_DIR / "model" / "best.pt",
     _BACKEND_DIR / "yolov8s.pt",
@@ -39,11 +42,18 @@ def _pretty_label(name: str) -> str:
     return name.replace("_", " ").strip().title()
 
 
-def resolve_model_path(configured: str) -> Path:
-    if configured:
-        path = Path(configured)
-        if path.is_file():
-            return path
+def resolve_model_path(configured: str = "") -> Path:
+    import os
+    env_path = os.environ.get("MODEL_PATH", "").strip()
+    check_paths = [configured, env_path]
+    for cp in check_paths:
+        if cp:
+            p = Path(cp)
+            if p.is_file():
+                return p
+            for root in (_REPO_ROOT, _BACKEND_DIR):
+                if (root / cp).is_file():
+                    return root / cp
     for candidate in _CANDIDATE_WEIGHTS:
         if candidate.is_file():
             return candidate
@@ -88,7 +98,6 @@ class SonarModelService(ModelService):
         self._hook_features: dict = {}
         self._backbone_hook = None
         self._proj = None
-        self._dgrm_features = None
 
     def load(self) -> None:
         from ultralytics import YOLO
@@ -242,6 +251,7 @@ class SonarModelService(ModelService):
         use_sadh = os.environ.get("USE_SADH", "false").lower() == "true"
 
         # ⭐ NEW: Extract real features from backbone for D-GRM
+        dgrm_features = None
         if use_dgrm and len(detections) > 1:
             boxes = []
             for det in detections:
@@ -253,9 +263,9 @@ class SonarModelService(ModelService):
                 orig_shape = meta.get("orig_shape") if meta else None
                 img_w = orig_shape[1] if orig_shape and len(orig_shape) > 1 else 640
                 img_h = orig_shape[0] if orig_shape and len(orig_shape) > 0 else 640
-                self._dgrm_features = self._extract_roi_features(backbone_feat, boxes, img_w, img_h)
+                dgrm_features = self._extract_roi_features(backbone_feat, boxes, img_w, img_h)
 
-            detections = self._apply_dgrm(detections)
+            detections = self._apply_dgrm(detections, dgrm_features)
         if use_sadh and meta and ("altitude_m" in meta or "slant_range_m" in meta):
             detections = self._apply_sadh(detections, meta)
 
@@ -315,7 +325,7 @@ class SonarModelService(ModelService):
             roi_vecs.append(roi_vec)
         return torch.stack(roi_vecs, dim=0)
 
-    def _apply_dgrm(self, detections: list[Detection]) -> list[Detection]:
+    def _apply_dgrm(self, detections: list[Detection], dgrm_features=None) -> list[Detection]:
         """Apply Debris Graph Reasoning to correlate and refine detection confidence."""
         if len(detections) <= 1:
             return detections
@@ -332,8 +342,8 @@ class SonarModelService(ModelService):
             boxes_tensor = torch.tensor(boxes, dtype=torch.float32)
 
             # ⭐ Use real features from backbone instead of random
-            if hasattr(self, "_dgrm_features") and self._dgrm_features is not None and len(self._dgrm_features) == len(detections):
-                graph_features = self._dgrm_features
+            if dgrm_features is not None and len(dgrm_features) == len(detections):
+                graph_features = dgrm_features
             else:
                 graph_features = torch.zeros(len(detections), 256)
 

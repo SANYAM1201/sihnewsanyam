@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from backend.app.models.neural.debris_graph import GraphConvolutionalLayer
+from backend.app.models.neural.debris_graph import GraphConvolution
 
-__all__ = ["GraphConvolutionalLayer", "GCNBlock"]
+__all__ = ["GraphConvolution", "GCNBlock"]
 
 
 class GCNBlock(nn.Module):
@@ -14,10 +14,10 @@ class GCNBlock(nn.Module):
 
     def __init__(self, in_features: int, hidden_features: int, out_features: int, dropout: float = 0.1):
         super().__init__()
-        self.gcn1 = GraphConvolutionalLayer(in_features, hidden_features)
+        self.gcn1 = GraphConvolution(in_features, hidden_features)
         self.relu = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout(dropout)
-        self.gcn2 = GraphConvolutionalLayer(hidden_features, out_features)
+        self.gcn2 = GraphConvolution(hidden_features, out_features)
         self.res_proj = (
             nn.Linear(in_features, out_features)
             if in_features != out_features
