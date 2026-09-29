@@ -1,0 +1,11 @@
+path: /content/dataset/MERGED_TRAINING_SET_preprocessed
+train: images/train
+val: images/val
+test: images/test
+nc: 5
+names:
+  0: shipwreck
+  1: aircraft
+  2: submarine_pipeline
+  3: ghost_net
+  4: mine_munitions

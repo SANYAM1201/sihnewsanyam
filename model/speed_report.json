@@ -1,0 +1,10 @@
+{
+  "model": "yolo11s",
+  "params_M": 9.43,
+  "size_MB": 19.2,
+  "ms_per_image": 27.9,
+  "fps": 35.8,
+  "imgsz": 800,
+  "best_conf": 0.47647647647647645,
+  "high_conf": 0.36936936936936937
+}

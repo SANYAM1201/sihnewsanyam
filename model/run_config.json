@@ -1,0 +1,32 @@
+{
+  "model_tag": "yolo11s",
+  "weights": "/content/drive/MyDrive/sih_yolo_runs/yolo11s_sonar_20260928_140551/weights/best.pt",
+  "data_yaml": "/content/dataset/MERGED_TRAINING_SET_preprocessed/data_colab.yaml",
+  "imgsz": 800,
+  "classes": {
+    "0": "shipwreck",
+    "1": "aircraft",
+    "2": "submarine_pipeline",
+    "3": "ghost_net",
+    "4": "mine_munitions"
+  },
+  "note": "run_config.json reconstructed post-hoc in Cell 8 patch; original was not preserved across account migration.",
+  "chosen_thresholds": {
+    "best_f1_conf": 0.47647647647647645,
+    "high_precision_conf": 0.36936936936936937,
+    "per_class": {
+      "shipwreck": 0.3263263263263263,
+      "aircraft": 0.5265265265265265,
+      "submarine_pipeline": 0.7497497497497497,
+      "ghost_net": 0.8138138138138138,
+      "mine_munitions": 0.28928928928928926
+    },
+    "test_final": {
+      "conf": 0.47647647647647645,
+      "P": 0.9436284326360662,
+      "R": 0.7573049560436561,
+      "mAP50": 0.746801603641865,
+      "mAP50_95": 0.6407051171691047
+    }
+  }
+}
